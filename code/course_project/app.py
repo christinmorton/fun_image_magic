@@ -7,6 +7,13 @@ import numpy as np
 def dummy(value):
     pass
 
+
+# read in an image, make a grayscale copy
+color_original = cv2.imread('../../resources/test_image.jpg')
+gray_original = cv2.cvtColor(color_original, cv2.COLOR_BGR2GRAY)
+
+
+
 # create teh UI window (window and trackbars)
 cv2.namedWindow('app')
 
@@ -23,6 +30,9 @@ cv2.createTrackbar('Greyscale', 'app', 0, 1, dummy) # this becomes a switch beca
 
 while True:
     #TODO read all of the trackbar values
+    
+    grayscale = cv2.getTrackbarPos('Greyscale', 'app')
+    
     #TODO: apply the filters
     #TODO: apply the brightness and contrast
     
@@ -35,6 +45,13 @@ while True:
     elif key == ord('s'):
         #TODO: save image
         pass
+    
+    # Show the image
+    if grayscale == 0:
+        #TODO: replace with modified image
+        cv2.imshow('app', color_original)
+    else:
+        cv2.imshow('app', gray_original)
 
 
 # window cleanup
