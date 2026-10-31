@@ -21,13 +21,21 @@ cv2.createTrackbar('Greyscale', 'app', 0, 1, dummy) # this becomes a switch beca
 
 # Main UI loop
 
+while True:
+    #TODO read all of the trackbar values
+    #TODO: apply the filters
+    #TODO: apply the brightness and contrast
+    
+    # wait for key press (100 milliseconds)
+    key = cv2.waitKey(100)
+    
+    # if key equals 'q' would be ideal but instead I need integer
+    if key == ord('q'):
+        break
+    elif key == ord('s'):
+        #TODO: save image
+        pass
 
-
-
-
-
-# wait indefinitely, remove this line!
-cv2.waitKey(0)
 
 # window cleanup
 cv2.destroyAllWindows()
