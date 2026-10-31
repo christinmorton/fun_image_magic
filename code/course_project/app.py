@@ -37,7 +37,7 @@ cv2.createTrackbar('Greyscale', 'app', 0, 1, dummy) # this becomes a switch beca
 
 
 # Main UI loop
-
+count = 1
 while True:
     # read all of the trackbar values
     grayscale = cv2.getTrackbarPos('Greyscale', 'app')
@@ -62,8 +62,15 @@ while True:
     if key == ord('q'):
         break
     elif key == ord('s'):
-        #TODO: save image
-        pass
+        # save image
+        
+        if grayscale == 0:
+            cv2.imwrite('output-{}.png'.format(count), color_modified)
+        else:
+            cv2.imwrite('output-{}.png'.format(count), grey_modified)
+            
+        
+        count += 1
     
     # Show the image
     if grayscale == 0:
