@@ -69,9 +69,14 @@ Photoshop cut-outs in `resources/csn_assets/`: `mascot-2025_cutout.png`,
 
 ## 4. Four-slot editor
 
-- [ ] Four slots, filled by the photo strip, by `S`, or by uploading into the selected slot
-- [ ] Each slot keeps its unedited image and its own look; the sliders show the selected
-      slot's look
-- [ ] Live preview as a vertical strip or a 2×2 grid; save either layout
-- [ ] Choose slots with keys and a Slot slider
+- [x] Four slots, filled by the photo strip (all four, then the editor opens), by `A` (the
+      camera picture goes into the selected slot), or by `U` in the editor (upload into
+      the selected slot). `E` switches between the camera and the editor.
+- [x] Each slot keeps its unedited image and its own look; the sliders show the selected
+      slot's look. The camera's settings come back when leaving the editor.
+- [x] Live preview as a vertical strip or a 2×2 grid (`L` or the Layout slider); `S` saves
+      either layout (`edited-strip-…` / `edited-grid-…`). `X` clears a slot.
+- [x] Choose slots with `Tab` and a Slot slider (the selected slot is outlined in gold)
+- [x] Slot photos are analysed once with image-mode MediaPipe models (video mode expects
+      each frame to follow on from the last)
 - [ ] Later: click thumbnails to choose a slot
