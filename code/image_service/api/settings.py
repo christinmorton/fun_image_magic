@@ -10,6 +10,13 @@ load_env(SERVICE_DIR / '.env')      # keys already set in the real environment w
 SERVICE_VERSION = '0.1.0'
 
 
+def photo_ttl_seconds():
+    # how long uploaded photos are kept (PHOTO_TTL_SECONDS in .env; default 2 hours)
+    try:
+        return max(60, int(os.environ.get('PHOTO_TTL_SECONDS', 7200)))
+    except ValueError:
+        return 7200
+
 def service_token():
     # the shared secret Laravel sends with every /v1 request (IMAGE_SERVICE_TOKEN in .env);
     # read on each call, so a changed environment (or a test) takes effect straight away
