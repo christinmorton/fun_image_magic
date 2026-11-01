@@ -45,7 +45,8 @@ booth (`docs/extended-app.md`). `course_project_extended` stays as it is. Branch
 - [ ] Frames are stretched on non-4:3 pictures: scale evenly, then stretch only the plain
       border sections, so corners and captions keep their shape
 - [ ] Stickers don't line up with Pop Art and Mirror: add them before those presets
-- [ ] Comic Dots is slow on large photos: make the dot size grow with the image size
+- [x] Comic Dots is slow on large photos: make the dot size grow with the image size
+      (960×720: 42 ms → 20 ms; webcam size unchanged)
 
 ## 3. Cody cut-outs (after the bugs)
 

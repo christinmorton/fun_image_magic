@@ -95,9 +95,12 @@ def pixel_art(img, block=12):
     small = (small // 64) * 64 + 32
     return cv2.resize(small, (w, h), interpolation=cv2.INTER_NEAREST)
 
-def comic_dots(img, cell=8):
+def comic_dots(img, cell=None):
     # halftone: a coloured dot per cell, bigger where the photo is darker
+    # cells grow with the picture (8 px at webcam size), so big photos don't need
+    # thousands more dots - and the dots look the same size on screen
     h, w = img.shape[:2]
+    cell = cell or max(8, w // 80)
     small = cv2.resize(img, (w // cell, h // cell), interpolation=cv2.INTER_AREA)
     dark = 1 - cv2.cvtColor(small, cv2.COLOR_BGR2GRAY) / 255.0
     out = np.full_like(img, 255)
