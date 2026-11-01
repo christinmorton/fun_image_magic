@@ -16,7 +16,7 @@ from asset_library import STICKERS, load_art          # noqa: E402
 from booth import PhotoStrip                          # noqa: E402
 from filters import KERNELS, PRESETS                  # noqa: E402
 from look import Look, render                         # noqa: E402
-from overlays import paste_centered                   # noqa: E402
+from overlays import fit_frame, paste_centered        # noqa: E402
 from sources import MAX_IMAGE_H, MAX_IMAGE_W, load_image   # noqa: E402
 
 
@@ -97,6 +97,32 @@ class TestOverlays(unittest.TestCase):
             paste_centered(img, sticker, cx, cy)   # must not crash
         self.assertEqual(img[0, 0].tolist(), [255, 255, 255])
         self.assertEqual(img[50, 50].tolist(), [0, 0, 0])
+
+
+class TestFrameFitting(unittest.TestCase):
+    def make_frame(self):
+        # 200x150 frame: plain blue border with a round gold badge in the bottom-right corner
+        frame = np.zeros((150, 200, 4), np.uint8)
+        cv2.rectangle(frame, (0, 0), (199, 149), (144, 73, 0, 255), 24)
+        cv2.circle(frame, (175, 125), 10, (1, 207, 255, 255), -1)
+        return frame
+
+    def badge_size(self, frame):
+        gold = np.all(frame[..., :3] == (1, 207, 255), axis=2).astype(np.uint8)
+        x, y, w, h = cv2.boundingRect(gold)
+        return w, h
+
+    def test_any_size_is_filled_exactly(self):
+        for w, h in [(200, 150), (400, 150), (200, 380), (960, 639), (480, 720)]:
+            with self.subTest(size=(w, h)):
+                self.assertEqual(fit_frame(self.make_frame(), w, h).shape, (h, w, 4))
+
+    def test_badge_keeps_its_shape(self):
+        frame = self.make_frame()
+        bw, bh = self.badge_size(frame)
+        for w, h in [(400, 150), (200, 380)]:     # much wider, much taller
+            with self.subTest(size=(w, h)):
+                self.assertEqual(self.badge_size(fit_frame(frame, w, h)), (bw, bh))
 
 
 class TestAssets(unittest.TestCase):

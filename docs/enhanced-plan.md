@@ -42,8 +42,10 @@ booth (`docs/extended-app.md`). `course_project_extended` stays as it is. Branch
 - [x] Contrast slider jumps in whole steps: steps of 0.1 (slider 0–30 divided by 10)
 - [x] Closing a window with the X doesn't exit: quit cleanly when either window closes
 - [x] Both colour and grey versions are processed every frame: process only the one on screen
-- [ ] Frames are stretched on non-4:3 pictures: scale evenly, then stretch only the plain
-      border sections, so corners and captions keep their shape
+- [x] Frames are stretched on non-4:3 pictures: scale evenly, then stretch only the plain
+      border sections, so corners and captions keep their shape. (Lines are repeated only
+      inside long plain stretches. The film strip has none along its sides, so its holes
+      still stretch on very tall pictures.)
 - [ ] Stickers don't line up with Pop Art and Mirror: add them before those presets
 - [x] Comic Dots is slow on large photos: make the dot size grow with the image size
       (960×720: 42 ms → 20 ms; webcam size unchanged)

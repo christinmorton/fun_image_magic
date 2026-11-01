@@ -5,9 +5,61 @@ import cv2
 import numpy as np
 
 
+_fitted_frames = {}   # (frame, width, height) -> fitted frame, so each size is only worked out once
+
+def fit_frame(frame, w, h):
+    # resize a frame to w x h without squashing its corners, captions or badges:
+    # scale it evenly until it fits the tighter direction, then lengthen the other
+    # direction by repeating only plain rows/columns (ones that match their neighbour)
+    key = (id(frame), w, h)
+    if key not in _fitted_frames:
+        fh, fw = frame.shape[:2]
+        scale = min(w / fw, h / fh)
+        fitted = cv2.resize(frame, (max(round(fw * scale), 1), max(round(fh * scale), 1)), interpolation=cv2.INTER_AREA)
+        fitted = _lengthen(fitted, w, axis=1)
+        fitted = _lengthen(fitted, h, axis=0)
+        _fitted_frames[key] = fitted
+    return _fitted_frames[key]
+
+def _lengthen(img, length, axis):
+    # make img `length` long along axis (1 = width, 0 = height) by repeating plain lines
+    n = img.shape[axis]
+    if n == length:
+        return img
+    lines = img.astype(np.int16)
+    if axis == 1:
+        change = np.abs(lines[:, 1:] - lines[:, :-1]).max(axis=(0, 2))
+    else:
+        change = np.abs(lines[1:] - lines[:-1]).max(axis=(1, 2))
+    same = change <= 2                           # line i looks the same as line i + 1
+    # only repeat lines inside long plain stretches (plain border, see-through middle);
+    # short ones are the flat tops of round badges or gaps between letters, and
+    # repeating those would visibly stretch them
+    min_run = max(3, round(n * 0.06))
+    plain, start = [], None
+    for i, is_same in enumerate(np.append(same, False)):
+        if is_same and start is None:
+            start = i
+        elif not is_same and start is not None:
+            if i - start >= min_run:
+                plain.extend(range(start, i))
+            start = None
+    plain = np.array(plain, int)
+    if n > length or len(plain) == 0:
+        # nothing plain to repeat (or rounding made it 1 px too long): plain resize
+        size = (length, img.shape[0]) if axis == 1 else (img.shape[1], length)
+        return cv2.resize(img, size)
+    # spread the extra lines evenly over the plain ones
+    extra = length - n
+    counts = np.ones(n, int)
+    counts[plain] += extra // len(plain)
+    leftover = extra % len(plain)
+    counts[plain[(np.arange(leftover) * len(plain)) // leftover]] += 1
+    return np.take(img, np.repeat(np.arange(n), counts), axis=axis)
+
 def apply_overlay(img, overlay):
     # a full-size transparent PNG (a frame) laid on top of the photo
-    overlay = cv2.resize(overlay, (img.shape[1], img.shape[0]))
+    overlay = fit_frame(overlay, img.shape[1], img.shape[0])
     alpha = overlay[..., 3:] / 255.0        # 0 = transparent, 1 = solid
     return (overlay[..., :3] * alpha + img * (1 - alpha)).astype(np.uint8)
 
