@@ -286,4 +286,60 @@ cv2.line(glow, (0, 680), (W, 680), (200, 80, 255), 3)
 bg = cv2.add(bg, cv2.add(glow, cv2.GaussianBlur(glow, (0, 0), 9)))
 save(bg, 'backgrounds', 'vegas_night.jpg')
 
+# ---------------------------------------------------------------- scene props (transparent)
+# props are placed and moved by hand in the editor; the app trims see-through padding,
+# so canvas sizes only need to be roomy enough
+NAVY_A, GOLD_A, BLUE_A, WHITE_A = bgra(NAVY), bgra(GOLD), bgra(BLUE), bgra(WHITE)
+STICK = (40, 90, 140, 255)          # wooden stick
+
+# a hand-held "GO CSN!" sign
+p = np.zeros((520, 360, 4), np.uint8)
+cv2.rectangle(p, (165, 290), (195, 519), STICK, -1)
+cv2.rectangle(p, (20, 20), (340, 300), GOLD_A, -1)
+cv2.rectangle(p, (20, 20), (340, 300), BLUE_A, 10)
+text_at(p, 'GO', 180, 105, 3.0, BLUE_A, 8)
+text_at(p, 'CSN!', 180, 215, 2.6, BLUE_A, 8)
+save(p, 'props', '1_go_csn_sign.png')
+
+# a blue foam finger with a gold "#1"
+p = np.zeros((520, 300, 4), np.uint8)
+cv2.rectangle(p, (110, 40), (190, 270), BLUE_A, -1)                        # finger
+cv2.circle(p, (150, 42), 40, BLUE_A, -1, cv2.LINE_AA)                      # fingertip
+cv2.rectangle(p, (40, 240), (260, 470), BLUE_A, -1)                        # hand
+for x in (85, 140, 195):                                                   # folded fingers
+    cv2.line(p, (x - 20, 250), (x + 20, 250), NAVY_A, 4, cv2.LINE_AA)
+cv2.rectangle(p, (60, 455), (240, 519), GOLD_A, -1)                        # cuff
+text_at(p, '#1', 150, 360, 2.4, GOLD_A, 7)
+save(p, 'props', '2_foam_finger.png')
+
+# a gold trophy on a blue base
+p = np.zeros((460, 360, 4), np.uint8)
+for cx in (55, 305):                                                       # handles
+    cv2.ellipse(p, (cx, 150), (45, 60), 0, 0, 360, GOLD_A, 16, cv2.LINE_AA)
+cv2.ellipse(p, (180, 80), (130, 180), 0, 0, 180, GOLD_A, -1, cv2.LINE_AA)  # cup
+cv2.ellipse(p, (180, 80), (130, 26), 0, 0, 360, (0, 170, 230, 255), -1, cv2.LINE_AA)   # rim
+cv2.rectangle(p, (160, 250), (200, 340), GOLD_A, -1)                       # stem
+cv2.rectangle(p, (110, 335), (250, 375), GOLD_A, -1)
+cv2.rectangle(p, (80, 375), (280, 450), BLUE_A, -1)                        # base
+text_at(p, 'CSN', 180, 412, 1.4, GOLD_A, 3)
+save(p, 'props', '3_trophy.png')
+
+# a speech bubble
+p = np.zeros((330, 480, 4), np.uint8)
+tail = np.array([[150, 225], [100, 320], [230, 245]], np.int32)
+cv2.fillPoly(p, [tail], NAVY_A, cv2.LINE_AA)
+cv2.ellipse(p, (240, 140), (226, 126), 0, 0, 360, NAVY_A, -1, cv2.LINE_AA)  # outline
+cv2.fillPoly(p, [tail + np.array([[4, -8], [8, -22], [-8, -8]])], WHITE_A, cv2.LINE_AA)
+cv2.ellipse(p, (240, 140), (219, 119), 0, 0, 360, WHITE_A, -1, cv2.LINE_AA)
+text_at(p, 'Go Coyotes!', 240, 140, 1.5, BLUE_A, 4)
+save(p, 'props', '4_speech_bubble.png')
+
+# a CSN pennant flag on a stick
+p = np.zeros((280, 520, 4), np.uint8)
+cv2.rectangle(p, (20, 0), (40, 279), STICK, -1)
+cv2.fillPoly(p, [np.array([[40, 20], [510, 120], [40, 220]], np.int32)], BLUE_A, cv2.LINE_AA)
+cv2.rectangle(p, (40, 20), (80, 220), GOLD_A, -1)
+text_at(p, 'CSN', 230, 120, 2.4, GOLD_A, 7)
+save(p, 'props', '5_pennant.png')
+
 print('Placeholder art written to', ASSETS_DIR)
