@@ -10,10 +10,12 @@ from pydantic import BaseModel
 
 from core import ASSETS_DIR, MODELS_DIR
 from core.asset_library import load_art
+from core.look import render as render_look
 from core.tracking import Tracker
 
 from .auth import require_token
 from .catalog import ART_KINDS, Catalog, art_images, build_catalog, thumbnail_png
+from .looks import ImageOptions, LookIn, encode_image, to_core_look
 from .photos import MAX_UPLOAD_BYTES, PhotoStore, decode_upload
 from .settings import SERVICE_VERSION, photo_ttl_seconds
 
@@ -112,5 +114,22 @@ def delete_photo(photo_id: str, request: Request):
     if not request.app.state.photos.delete(photo_id):
         raise HTTPException(404, f'Photo "{photo_id}" not found')
     return Response(status_code=204)
+
+
+class RenderRequest(ImageOptions):
+    photo_id: str
+    look: LookIn = LookIn()
+
+IMAGE_RESPONSES = {200: {'content': {'image/png': {}, 'image/jpeg': {}}, 'description': 'The finished image'}}
+
+@v1.post('/render', tags=['images'], response_class=Response, responses=IMAGE_RESPONSES)
+def render(body: RenderRequest, request: Request):
+    # one photo + one look -> the finished image (runs in a worker thread: it's a plain def)
+    photo = stored_photo(request, body.photo_id)
+    art = request.app.state.art
+    look = to_core_look(body.look, art)
+    picture = render_look(photo.image.copy(), look, art, photo.faces, photo.person_mask)
+    data, media_type = encode_image(picture, body)
+    return Response(data, media_type=media_type)
 
 app.include_router(v1)

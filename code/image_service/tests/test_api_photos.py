@@ -63,5 +63,45 @@ class TestPhotos(PhotoTestCase):
         self.assertIn('expired', response.json()['detail'])
 
 
+class TestRender(PhotoTestCase):
+    def render(self, photo_id, look=None, **options):
+        return self.client.post('/v1/render', headers=AUTH, json={'photo_id': photo_id, 'look': look or {}, **options})
+
+    def test_default_look_returns_the_photo_unchanged(self):
+        img = gradient_photo()
+        response = self.render(self.upload(img).json()['photo_id'])
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers['content-type'], 'image/png')
+        self.assertTrue(np.array_equal(decode(response), img))          # PNG is lossless
+
+    def test_a_full_look(self):
+        img = gradient_photo()
+        photo_id = self.upload(img).json()['photo_id']
+        look = {'preset': 4, 'contrast': 1.2, 'kernel': 1, 'frame': 0, 'mascot': 1, 'background': 2,
+                'focus': 1, 'sticker': 0, 'props': [{'prop': 0, 'x': 0.8, 'y': 0.6, 'size': 0.4}]}
+        out = decode(self.render(photo_id, look))
+        self.assertEqual(out.shape, img.shape)
+        self.assertFalse(np.array_equal(out, img))
+
+    def test_jpeg_and_max_width(self):
+        photo_id = self.upload().json()['photo_id']
+        response = self.render(photo_id, format='jpeg', quality=80, max_width=320)
+        self.assertEqual(response.headers['content-type'], 'image/jpeg')
+        self.assertEqual(decode(response).shape[:2], (240, 320))
+
+    def test_bad_looks_are_refused_with_a_reason(self):
+        photo_id = self.upload().json()['photo_id']
+        for look, expected_text in [({'preset': 99}, 'preset'), ({'sticker': 50}, 'only 7'),
+                                    ({'props': [{'prop': 0, 'x': 2}]}, 'x'), ({'presett': 1}, 'presett'),
+                                    ({'props': [{'prop': 42}]}, 'props[0]')]:
+            with self.subTest(look=look):
+                response = self.render(photo_id, look)
+                self.assertEqual(response.status_code, 422)
+                self.assertIn(expected_text, response.text)
+
+    def test_unknown_photo(self):
+        self.assertEqual(self.render('no-such-photo').status_code, 404)
+
+
 if __name__ == '__main__':
     unittest.main()
