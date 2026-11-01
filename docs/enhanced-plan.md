@@ -14,6 +14,9 @@ booth (`docs/extended-app.md`). `course_project_extended` stays as it is. Branch
 | Image library | Four slots, not an open-ended gallery |
 | Choosing a slot | Keys and a Slot slider first; clickable thumbnails later |
 | Layouts | Vertical strip and 2×2 grid |
+| Face stickers (2026-11-01) | Stay as they are: tracked to faces, not movable |
+| Movable items (2026-11-01) | A new **scene props** system: plain assets, not face-tracked, placed and moved by hand |
+| AI backend (2026-11-01) | Cloud APIs first (larger models), not local; see `docs/ai-image-generation-plan.md` |
 
 ## 0. Environment
 
@@ -80,3 +83,42 @@ Photoshop cut-outs in `resources/csn_assets/`: `mascot-2025_cutout.png`,
 - [x] Slot photos are analysed once with image-mode MediaPipe models (video mode expects
       each frame to follow on from the last)
 - [ ] Later: click thumbnails to choose a slot
+
+## 5. Masking (Roadmap Part 2, Step 10)
+
+The person mask (MediaPipe selfie segmenter) is currently used raw, only for background swap.
+
+- [x] Mask clean-up (`masks.refine_mask`, about 3 ms per frame): firm up the uncertain edge,
+      remove specks and pinholes, pull the edge in by 1 px, soften slightly. Background
+      swap uses it too; the pale halo of the old background is gone. (A guided filter was
+      tried and made the halo *wider* on plain backdrops, so it was dropped.)
+- [x] A "Focus" setting (slider + `P`): off, color pop (person in colour, background
+      grey), portrait blur (background blurred), mask preview (shows what counts as the
+      person). The on-screen label shows it, e.g. "Original + Color Pop".
+- [x] The camera loop asks MediaPipe for the mask whenever Focus is on, not only for
+      background swap (`Look.needs_person_mask()`)
+- [x] Tests, a visual check, and screens without background swap or Focus unchanged pixel
+      for pixel (57 of 72); the other 15 are the expected background-swap changes and the
+      help panel
+
+## 6. Scene props (movable assets)
+
+Plain transparent PNGs that are **not** tracked to faces: inserted into a photo and moved
+by hand. Face stickers stay as they are.
+
+- [ ] `assets/props/`: loaded in name order like the other art. Candidates: Cody cut-outs,
+      signs ("GO CSN!"), foam finger, trophy, speech bubbles, and later cartoon Cody
+      (step 7)
+- [ ] Each slot's look keeps its own props: which prop, position and size
+- [ ] Editor: add a prop, click to select it, drag with the mouse to move, keys to resize,
+      remove. The mouse position is mapped from the shrunk preview to the slot's photo.
+- [ ] Decide: does the existing Cody slider (fixed bottom-right) stay, or do the Cody
+      cut-outs become props? (Leaning: keep the slider as it is, and also offer Cody as
+      props.)
+- [ ] Decide: props in the editor only, or also in camera mode? (Leaning: editor first)
+
+## 7. AI image generation (cloud APIs first)
+
+See `docs/ai-image-generation-plan.md`: AI styles, AI backgrounds (using the step 5 mask),
+and a **cartoon Cody** made with AI that can be used as a prop (step 6), so students can
+pose with a cartoon Cody as well as the photo cut-outs.

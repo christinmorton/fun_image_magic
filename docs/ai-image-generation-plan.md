@@ -4,7 +4,9 @@ Notes for adding AI image generation to the enhanced photo booth
 (`code/course_project_enhanced/`). This is Roadmap Part 2, Step 13 (`docs/expansion-roadmap-part-2.md`).
 Written 2026-10-31 to pick up in a later session. **No code has been written yet.**
 
-Current position: **both local and cloud options are still open.**
+**Decision (2026-11-01): start with cloud APIs (larger models), not a local install.**
+The local notes below stay for reference. Before AI, the plan is masking and scene props
+(`docs/enhanced-plan.md`, steps 5–6).
 
 ---
 
@@ -84,9 +86,17 @@ Hugging Face model cards first):
 
 ## Recommendation so far
 
-Start **local** (free, private, works offline), but write the code so **cloud can be
-added behind the same keys and menu**. Both stay open. Decide after the speed and
-quality trial (step 1 below).
+*Superseded on 2026-11-01:* cloud APIs first. The original recommendation was to start
+local (free, private, works offline), with cloud added behind the same keys and menu.
+That design (one interface, either backend) still applies, so local can be added later.
+
+Cloud-first adds these to-dos:
+
+- **API key:** kept out of git (an environment variable, or an ignored `.env` file).
+- **Cost:** a per-image cost, so set a spending limit with the provider.
+- **Privacy:** photos leave the laptop. Needs a consent sign and a check of the provider's
+  data terms.
+- **Internet:** needed at the event, so keep the non-AI booth as a fallback.
 
 ---
 
@@ -114,6 +124,37 @@ ideas: on the Las Vegas Strip at night, on the CSN basketball court, in outer sp
 at Red Rock Canyon. The mask comes from the existing selfie segmenter, inverted so
 the AI paints only the background.
 
+### Feature 3: cartoon Cody (added 2026-11-01)
+
+A cartoon or vector-style Cody made with AI, so students can "pose with Cody" even
+without a photo cut-out. The Photoshop cut-outs stay, and more can be added later.
+
+Ways to do it, roughly simplest first:
+
+1. **Make a cartoon Cody pose set once, ahead of time (recommended start).** Give a cloud
+   model the Cody photos or cut-outs as **reference images**, with a style prompt (for
+   example "flat vector cartoon mascot, the same coyote, CSN blue jersey"). Generate a
+   handful of poses (waving, cheering, thumbs up, holding a "GO CSN!" sign). Keep the best
+   ones, remove their backgrounds, and save them as transparent PNGs in `assets/props/`.
+   They then work like any other **scene prop** (`docs/enhanced-plan.md`, step 6): placed
+   and moved by hand, free to use, instant, and checked for quality before the event.
+2. **Generate cartoon Cody live, per photo.** Ask the API to add cartoon Cody into a
+   student's photo (reference images + the photo, with a mask for where he goes). More
+   magical, but it costs per image, is slower, and is less predictable.
+3. **A "trained" Cody model.** Fine-tune an image model on Cody images (for example a
+   LoRA trained on a cloud service), so it can draw Cody in any pose on demand. This gives
+   the most consistent character, but it's the most work and cost, and it needs a good
+   set of training images. Worth it only if options 1–2 aren't consistent enough.
+
+Things to check:
+
+- **Brand permission:** Cody and the CSN marks belong to the college. Get permission for
+  AI-made versions, and for uploading Cody images to a provider.
+- **Provider terms:** whether reference images may be used for consistent characters, and
+  who owns the outputs.
+- **Consistency:** compare the generated poses side by side; a character that drifts
+  between poses looks off-brand.
+
 ### Design notes
 
 - A new `ai.py` module, **imported only when AI is first used**, so the booth starts fast
@@ -129,17 +170,21 @@ the AI paints only the background.
 
 ## Proposed order of work
 
-1. **Speed and quality trial (no app changes):** a stand-alone script that runs two or
-   three candidate models on the test portrait
-   (`storage.googleapis.com/mediapipe-assets/business-person.png`). Record seconds per
-   image, graphics memory used, and how well the person stays recognisable. Pick the
-   models.
-2. **`ai.py` + AI styles in the editor.**
-3. **AI backgrounds** with the person mask.
-4. *(Optional)* **Cloud version** behind the same interface, for comparison or as a
-   higher-quality mode.
-5. **Docs and tests:** update `docs/enhanced-plan.md`, and add unit tests that use a fake
-   generator so they don't need the GPU.
+Updated 2026-11-01 for cloud first:
+
+0. **Before AI:** masking and scene props (`docs/enhanced-plan.md`, steps 5–6).
+1. **Choose a provider:** compare current official pricing, image-editing and
+   reference-image support, and data terms. Set up an API key and a spending limit.
+2. **Trial script (no app changes):** send the test portrait
+   (`storage.googleapis.com/mediapipe-assets/business-person.png`) with a few style
+   prompts, plus one masked background edit. Record cost, time and likeness.
+3. **Cartoon Cody pose set:** generate a set with reference images, pick the best, remove
+   backgrounds, and add them to `assets/props/`.
+4. **`ai.py` + AI styles in the editor** (background thread, "Generating…", undo).
+5. **AI backgrounds** with the cleaned-up person mask.
+6. *(Later)* live cartoon Cody per photo, a trained Cody model, or a local backend.
+7. **Docs and tests:** update the plans, and add unit tests that use a fake generator,
+   so they need no internet or API key.
 
 ---
 
@@ -147,12 +192,13 @@ the AI paints only the background.
 
 | # | Question | Leaning |
 | --- | --- | --- |
-| 1 | Local, cloud, or both? | Both open; start local, keep cloud possible |
+| 1 | Local, cloud, or both? | **Decided: cloud first** (local possible later) |
 | 2 | AI styles, AI backgrounds, or both? | Both, styles first |
-| 3 | Is a 5–10 GB install acceptable? | To confirm |
+| 3 | Is a 5–10 GB install acceptable? | Not needed for cloud |
 | 4 | Editor only, or also camera mode? | Editor only |
-| 5 | Which cloud provider, if any? | Decide after checking current official pricing and data terms |
-| 6 | Same venv, or a separate one for AI? | Same venv looks possible (CUDA builds exist for 3.15) |
+| 5 | Which cloud provider? | Decide after checking current official pricing, reference-image support and data terms |
+| 6 | Cartoon Cody: pre-made set, live, or trained? | Pre-made set first (as scene props) |
+| 7 | Permission to make AI versions of Cody | To ask CSN |
 
 ---
 
