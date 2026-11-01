@@ -1,2 +1,4 @@
 resources/
 code/course_project_extended/output/
+code/course_project_enhanced/output/
+__pycache__/
