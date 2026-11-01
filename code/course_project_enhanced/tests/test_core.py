@@ -17,6 +17,7 @@ from booth import PhotoStrip                          # noqa: E402
 from filters import KERNELS, PRESETS                  # noqa: E402
 from look import Look, render                         # noqa: E402
 from overlays import fit_frame, paste_centered        # noqa: E402
+from slots import BORDER, Slots                       # noqa: E402
 from sources import MAX_IMAGE_H, MAX_IMAGE_W, load_image   # noqa: E402
 
 
@@ -168,6 +169,50 @@ class TestPhotoStrip(unittest.TestCase):
             _, finished = strip.update(img, now=t)
         self.assertEqual(finished.shape, (4 * (80 + 24), 100 + 24, 3))
         self.assertFalse(strip.shooting)
+
+
+class FakeTracker:
+    # stands in for MediaPipe: no faces, no person
+    def analyse_still(self, img):
+        return [], None
+
+
+class TestSlots(unittest.TestCase):
+    def setUp(self):
+        self.art = load_art(APP_DIR / 'assets')
+        self.slots = Slots()
+
+    def test_each_slot_keeps_its_own_look(self):
+        look = Look(preset=1)
+        self.slots.put(0, test_photo(), look, FakeTracker())
+        self.slots.put(1, test_photo(), look, FakeTracker())
+        self.slots.slots[0].look.preset = 2           # edit slot 1 only
+        self.assertEqual(self.slots.slots[1].look.preset, 1)
+        self.assertEqual(look.preset, 1)               # the camera's look is untouched too
+
+    def test_picture_is_cached_until_the_look_changes(self):
+        self.slots.put(0, test_photo(), Look(), FakeTracker())
+        slot = self.slots.slots[0]
+        first = slot.picture(self.art)
+        self.assertIs(slot.picture(self.art), first)
+        slot.look.preset = 2
+        self.assertIsNot(slot.picture(self.art), first)
+
+    def test_layout_sizes(self):
+        self.slots.put(0, test_photo(), Look(), FakeTracker())
+        self.slots.put(2, test_photo(960, 640), Look(), FakeTracker())   # a different size is fitted in
+        cell_w, cell_h = 640 + 2 * BORDER, 480 + 2 * BORDER
+        grid, rects = self.slots.compose(self.art, 'Grid')
+        self.assertEqual(grid.shape, (2 * cell_h, 2 * cell_w, 3))
+        self.assertEqual(rects[3], (cell_w, cell_h, cell_w, cell_h))
+        strip, _ = self.slots.compose(self.art, 'Strip')
+        self.assertEqual(strip.shape, (4 * cell_h, cell_w, 3))           # empty slots shown on screen
+        saved, _ = self.slots.compose(self.art, 'Strip', for_saving=True)
+        self.assertEqual(saved.shape, (2 * cell_h, cell_w, 3))           # ... but left out when saving
+
+    def test_nothing_to_save_when_empty(self):
+        self.assertFalse(self.slots.any_filled())
+        self.assertIsNone(self.slots.compose(self.art, 'Strip', for_saving=True)[0])
 
 
 if __name__ == '__main__':
