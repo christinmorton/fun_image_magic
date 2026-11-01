@@ -66,6 +66,13 @@ def outlined_text(img, text, org, scale, thickness, outline):
     cv2.putText(img, text, org, cv2.FONT_HERSHEY_SIMPLEX, scale, (0, 0, 0), outline)
     cv2.putText(img, text, org, cv2.FONT_HERSHEY_SIMPLEX, scale, (255, 255, 255), thickness)
 
+def window_closed(name):
+    # True once the window's X button has been clicked
+    try:
+        return cv2.getWindowProperty(name, cv2.WND_PROP_VISIBLE) < 1
+    except cv2.error:
+        return True
+
 def save_picture(kind, img):
     cv2.imwrite(str(OUTPUT_DIR / f'{kind}-{datetime.now():%Y%m%d-%H%M%S}.png'), img)
 
@@ -143,6 +150,11 @@ while True:
 
     # wait for key press (1 millisecond, so the video stays smooth)
     key = cv2.waitKey(1)
+
+    # closing either window with its X button quits, like Q (checked right after waitKey,
+    # because imshow would quietly open the window again)
+    if window_closed('app') or window_closed('controls'):
+        break
 
     # if key equals 'q' would be ideal but instead I need integer
     if key == ord('q'):
