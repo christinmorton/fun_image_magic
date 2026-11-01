@@ -89,7 +89,7 @@ def outlined_text(img, text, org, scale, thickness, outline):
     cv2.putText(img, text, org, cv2.FONT_HERSHEY_SIMPLEX, scale, (0, 0, 0), outline)
     cv2.putText(img, text, org, cv2.FONT_HERSHEY_SIMPLEX, scale, (255, 255, 255), thickness)
 
-def editor_screen(layout_img, selected_rect, title, hints, prop_rect=None):
+def editor_screen(layout_img, selected_rect, title, hints, prop_rect=None, message=None):
     # the strip/grid shrunk to fit the screen, the selected slot outlined in gold (and the
     # selected prop in light blue), under a dark bar with the title and two lines of hints.
     # Also returns the view (scale, left, top), to turn mouse positions back into the layout
@@ -107,6 +107,10 @@ def editor_screen(layout_img, selected_rect, title, hints, prop_rect=None):
     cv2.putText(screen, title, (16, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2, cv2.LINE_AA)
     for i, hint in enumerate(hints):
         cv2.putText(screen, hint, (16, 64 + 26 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 200, 200), 1, cv2.LINE_AA)
+    if message:
+        # a short message replaces the first hint line, in CSN gold so it stands out
+        screen[46:72] = 40
+        cv2.putText(screen, message, (16, 66), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (1, 207, 255), 2, cv2.LINE_AA)
     return screen, (scale, left, EDITOR_BAR_H)
 
 def screen_to_layout(sx, sy, view):
@@ -210,6 +214,7 @@ slots = Slots()
 editing = False            # False = camera, True = four-slot editor
 camera_look = None         # the camera's settings, kept while the sliders edit a slot
 message, message_until = '', 0
+last_filled = None         # the slot most recently given a photo (the editor opens there)
 selected_prop = None       # index into the selected slot's props, or None
 drag_offset = None         # while dragging a prop: (dx, dy) from the grab point to its centre
 editor_view = None         # (scale, left, top) of the last editor screen, for the mouse
@@ -287,11 +292,16 @@ while True:
             show_look(camera_look)
         else:
             editing, camera_look = True, look
+            # A moves on to the next (empty) slot, so open on the slot that was filled last
+            if slots.current().image is None and last_filled is not None and slots.slots[last_filled].image is not None:
+                slots.selected = last_filled
+                cv2.setTrackbarPos('Slot', 'controls', last_filled + 1)
             show_look(slots.current().look)
         selected_prop, drag_offset = None, None
     elif key == ord('a') and not editing:
         # add the camera picture (unedited, with the current settings) to the selected slot
         slots.put(slots.selected, img, look, tracker)
+        last_filled = slots.selected
         message, message_until = f'Added to slot {slots.selected + 1}', time.time() + 2
         cv2.setTrackbarPos('Slot', 'controls', (slots.selected + 1) % SLOT_COUNT + 1)   # next slot
     elif key == TAB_KEY:
@@ -302,6 +312,8 @@ while True:
         slots.clear(slots.selected)
         show_look(slots.current().look)
         selected_prop, drag_offset = None, None
+    elif key == ord('i') and not editing:
+        message, message_until = 'Props are added in the editor: press E', time.time() + 3
     elif key == ord('i') and editing and art.props:
         # add the prop chosen on the Prop slider to the middle of the selected photo
         if slots.current().image is None:
@@ -325,6 +337,7 @@ while True:
         image = load_image(path) if path else None
         if image is not None and editing:
             slots.put(slots.selected, image, slots.current().look, tracker)
+            last_filled = slots.selected
         elif image is not None:
             source.use_image(image)
         elif path:
@@ -411,9 +424,8 @@ while True:
         hints = ['TAB next slot  L strip/grid  U upload  X clear  S save  E camera',
                  f'Props: I add "{art.prop_names[prop_choice]}"  drag to move  wheel or +/- size  D delete'
                  if art.props else '']
-        if time.time() < message_until:
-            hints[0] = message
-        shown, editor_view = editor_screen(picture, rects[slots.selected], title, hints, prop_rect)
+        shown, editor_view = editor_screen(picture, rects[slots.selected], title, hints, prop_rect,
+                                           message if time.time() < message_until else None)
     else:
         shown = picture.copy()
         outlined_text(shown, label, (20, 40), 1.2, 2, 6)
@@ -426,6 +438,7 @@ while True:
             save_picture('strip', strip)
             for i, (shot, shot_look) in enumerate(photo_strip.originals[:SLOT_COUNT]):
                 slots.put(i, shot, shot_look, tracker)
+            last_filled = 0
             editing, camera_look = True, look
             cv2.setTrackbarPos('Slot', 'controls', 1)
             slots.selected = 0
