@@ -3,14 +3,16 @@
 # then open http://127.0.0.1:8000/docs for the interactive API docs.
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from core import ASSETS_DIR, MODELS_DIR
 from core.asset_library import load_art
 from core.look import render as render_look
+from core.slots import SLOT_COUNT, Slot, Slots
 from core.tracking import Tracker
 
 from .auth import require_token
@@ -129,6 +131,37 @@ def render(body: RenderRequest, request: Request):
     art = request.app.state.art
     look = to_core_look(body.look, art)
     picture = render_look(photo.image.copy(), look, art, photo.faces, photo.person_mask)
+    data, media_type = encode_image(picture, body)
+    return Response(data, media_type=media_type)
+
+
+class SlotIn(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    photo_id: str | None = Field(None, description='Leave out (or null) for an empty slot')
+    look: LookIn = LookIn()
+
+class ComposeRequest(ImageOptions):
+    layout: Literal['strip', 'grid'] = 'strip'
+    slots: list[SlotIn] = Field(min_length=1, max_length=SLOT_COUNT, description=f'Up to {SLOT_COUNT}, in order')
+
+@v1.post('/compose', tags=['images'], response_class=Response, responses=IMAGE_RESPONSES)
+def compose(body: ComposeRequest, request: Request):
+    # up to four photos, each with its own look -> one strip (stacked) or 2x2 grid, like the
+    # desktop editor saves it: empty slots are left out of a strip and white in a grid
+    art = request.app.state.art
+    slots = Slots()
+    for i, slot_in in enumerate(body.slots):
+        if slot_in.photo_id is None:
+            continue
+        photo = stored_photo(request, slot_in.photo_id)
+        try:
+            look = to_core_look(slot_in.look, art)
+        except HTTPException as error:
+            raise HTTPException(error.status_code, f'slots[{i}]: {error.detail}')
+        slots.slots[i] = Slot(photo.image, look, photo.faces, photo.person_mask)
+    if not slots.any_filled():
+        raise HTTPException(422, 'At least one slot needs a photo_id')
+    picture, _ = slots.compose(art, body.layout.capitalize(), for_saving=True)
     data, media_type = encode_image(picture, body)
     return Response(data, media_type=media_type)
 

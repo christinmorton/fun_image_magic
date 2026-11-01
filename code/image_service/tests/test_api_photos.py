@@ -103,5 +103,33 @@ class TestRender(PhotoTestCase):
         self.assertEqual(self.render('no-such-photo').status_code, 404)
 
 
+class TestCompose(PhotoTestCase):
+    def compose(self, slots, layout='grid', **options):
+        return self.client.post('/v1/compose', headers=AUTH, json={'layout': layout, 'slots': slots, **options})
+
+    def test_grid_of_photos_with_their_own_looks(self):
+        a = self.upload(gradient_photo()).json()['photo_id']
+        b = self.upload(gradient_photo(960, 640)).json()['photo_id']    # a different size is fitted in
+        response = self.compose([{'photo_id': a, 'look': {'preset': 6}}, {'photo_id': b, 'look': {'frame': 2}}])
+        self.assertEqual(response.status_code, 200)
+        cell_w, cell_h = 640 + 24, 480 + 24                                # each photo gets a 12 px border
+        self.assertEqual(decode(response).shape[:2], (2 * cell_h, 2 * cell_w))
+
+    def test_strip_leaves_out_empty_slots(self):
+        a = self.upload().json()['photo_id']
+        response = self.compose([{'photo_id': a}, {'photo_id': None}, {'photo_id': a, 'look': {'preset': 2}}],
+                                layout='strip')
+        self.assertEqual(decode(response).shape[:2], (2 * (480 + 24), 640 + 24))
+
+    def test_compose_errors(self):
+        a = self.upload().json()['photo_id']
+        self.assertEqual(self.compose([{'photo_id': None}]).status_code, 422)            # nothing to compose
+        self.assertEqual(self.compose([{'photo_id': a}] * 5).status_code, 422)           # more than 4 slots
+        self.assertEqual(self.compose([{'photo_id': 'gone'}]).status_code, 404)
+        bad = self.compose([{'photo_id': a}, {'photo_id': a, 'look': {'frame': 30}}])
+        self.assertEqual(bad.status_code, 422)
+        self.assertIn('slots[1]', bad.json()['detail'])
+
+
 if __name__ == '__main__':
     unittest.main()
