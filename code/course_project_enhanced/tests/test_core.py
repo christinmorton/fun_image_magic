@@ -12,7 +12,7 @@ import numpy as np
 APP_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(APP_DIR))
 
-from asset_library import STICKERS, load_art          # noqa: E402
+from asset_library import STICKERS, load_art, trim_transparent   # noqa: E402
 from booth import PhotoStrip                          # noqa: E402
 from filters import KERNELS, PRESETS                  # noqa: E402
 from look import Look, render                         # noqa: E402
@@ -85,8 +85,10 @@ class TestRender(unittest.TestCase):
     def test_frame_and_mascot_keep_size(self):
         img = test_photo(960, 639)
         art = load_art(APP_DIR / 'assets')
-        out = render(img, Look(frame=0, mascot=True), art)
-        self.assertEqual(out.shape, img.shape)
+        for pose in range(len(art.mascots)):
+            with self.subTest(pose=pose):
+                out = render(img.copy(), Look(frame=0, mascot=pose), art)
+                self.assertEqual(out.shape, img.shape)
 
 
 class TestOverlays(unittest.TestCase):
@@ -128,10 +130,20 @@ class TestFrameFitting(unittest.TestCase):
 class TestAssets(unittest.TestCase):
     def test_all_art_loads(self):
         art = load_art(APP_DIR / 'assets')
-        self.assertIsNotNone(art.mascot)
+        self.assertEqual(len(art.mascots), 3)
+        for pose in art.mascots:      # trimmed: Cody touches every edge of his image
+            alpha = pose[..., 3] >= 16
+            self.assertTrue(alpha[0].any() and alpha[-1].any() and alpha[:, 0].any() and alpha[:, -1].any())
         self.assertEqual(len(art.stickers), len(STICKERS))
         self.assertGreater(len(art.frames), 0)
         self.assertGreater(len(art.backgrounds), 0)
+
+
+    def test_trim_removes_padding(self):
+        img = np.zeros((100, 120, 4), np.uint8)
+        img[30:60, 40:90] = 255          # visible art
+        img[5, 5, 3] = 3                 # a faint speck that should not count
+        self.assertEqual(trim_transparent(img).shape, (30, 50, 4))
 
 
 class TestSources(unittest.TestCase):

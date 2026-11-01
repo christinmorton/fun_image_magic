@@ -57,7 +57,7 @@ def read_look():
         preset=cv2.getTrackbarPos('Preset', 'controls'),
         sticker=cv2.getTrackbarPos('Sticker', 'controls') - 1,          # -1 = off
         background=cv2.getTrackbarPos('Background', 'controls') - 1,    # -1 = off
-        mascot=cv2.getTrackbarPos('Cody', 'controls') == 1,
+        mascot=cv2.getTrackbarPos('Cody', 'controls') - 1,              # -1 = off
         frame=cv2.getTrackbarPos('Frame', 'controls') - 1,              # -1 = off
     )
 
@@ -107,7 +107,7 @@ help_panel = np.full((214, 460, 3), 40, np.uint8)
 for i, line in enumerate(['Click the video, then press:',
                           '1-9, 0 preset   [ ] previous/next preset',
                           'F sticker   B background   O frame',
-                          'M Cody   S save   Q quit',
+                          'M Cody (poses)   S save   Q quit',
                           'SPACE photo strip (3-2-1 countdown)',
                           'U upload an image   W webcam']):
     cv2.putText(help_panel, line, (12, 30 + i * 32), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
@@ -127,10 +127,10 @@ cv2.createTrackbar('Greyscale', 'controls', 0, 1, dummy) # this becomes a switch
 cv2.createTrackbar('Preset', 'controls', 0, len(PRESETS) - 1, dummy)
 cv2.createTrackbar('Sticker', 'controls', 0, len(art.stickers), dummy)         # 0 = off
 cv2.createTrackbar('Background', 'controls', 0, len(art.backgrounds), dummy)   # 0 = off
-cv2.createTrackbar('Cody', 'controls', 0, 1, dummy)
+cv2.createTrackbar('Cody', 'controls', 0, len(art.mascots), dummy)            # 0 = off, then each pose
 cv2.createTrackbar('Frame', 'controls', 1 if art.frames else 0, len(art.frames), dummy)   # 0 = off
 
-print('Keys (click the video first): 1-9, 0 presets | [ ] prev/next preset | f face sticker | b background | m Cody | o frame')
+print('Keys (click the video first): 1-9, 0 presets | [ ] prev/next preset | f face sticker | b background | m Cody poses | o frame')
 print('      space photo strip | s save | u upload an image | w webcam | q quit')
 
 
@@ -187,7 +187,8 @@ while True:
         # cycle backgrounds: off -> each background -> off
         cv2.setTrackbarPos('Background', 'controls', (look.background + 2) % (len(art.backgrounds) + 1))
     elif key == ord('m'):
-        cv2.setTrackbarPos('Cody', 'controls', 0 if look.mascot else 1)
+        # cycle Cody poses: off -> each pose -> off
+        cv2.setTrackbarPos('Cody', 'controls', (look.mascot + 2) % (len(art.mascots) + 1))
     elif key == ord('o'):
         # cycle branded frames: each frame -> off -> first frame
         cv2.setTrackbarPos('Frame', 'controls', (look.frame + 2) % (len(art.frames) + 1))

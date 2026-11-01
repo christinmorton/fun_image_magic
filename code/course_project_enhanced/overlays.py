@@ -78,12 +78,14 @@ def paste_centered(img, sticker, cx, cy):
     return img
 
 def add_mascot(img, mascot):
-    # mascot stands on the right side of the photo, 3/4 of its height
+    # mascot stands in the bottom-right corner, flush with the edges (some poses are cut
+    # off at the bottom or right, so a gap would show). Up to 3/4 of the photo's height and
+    # 45% of its width, so wide half-body poses don't cover the people in the photo
     H, W = img.shape[:2]
-    mh = int(H * 0.75)
-    mw = int(mascot.shape[1] * mh / mascot.shape[0])
-    resized = cv2.resize(mascot, (mw, mh))
-    return paste_centered(img, resized, W - mw / 2 - 10, H - mh / 2)
+    scale = min(H * 0.75 / mascot.shape[0], W * 0.45 / mascot.shape[1])
+    mh, mw = int(mascot.shape[0] * scale), int(mascot.shape[1] * scale)
+    resized = cv2.resize(mascot, (mw, mh), interpolation=cv2.INTER_AREA)
+    return paste_centered(img, resized, W - mw / 2, H - mh / 2)
 
 def add_face_sticker(img, faces, sticker, width_factor, lift_factor):
     # place a sticker on every face, sized and tilted from the outer eye corners

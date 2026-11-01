@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Makes the placeholder art in assets/: branded frames, face stickers, backgrounds and the
-# Cody cut-out. Run it again after changing colours or text:   python make_assets.py
+# Makes the placeholder art in assets/: branded frames, face stickers and backgrounds.
+# Run it again after changing colours or text:   python make_assets.py
 # Replace any file in assets/ with real art (same name) and app.py will use it instead.
+# Cody is NOT made here: his poses in assets/mascot/ are Photoshop cut-outs, so this
+# script never touches them.
 from pathlib import Path
 
 import cv2
 import numpy as np
-import mediapipe as mp
-from mediapipe.tasks.python import BaseOptions, vision
 
 BASE_DIR = Path(__file__).resolve().parent
 ASSETS_DIR = BASE_DIR / 'assets'
-MASCOT_PHOTO = BASE_DIR.parent.parent / 'resources' / 'csn_assets' / 'mascot-2025.jpg'
-SEGMENTER_MODEL = BASE_DIR / 'models' / 'selfie_segmenter.tflite'
 
 # CSN brand colours in BGR order (from resources/csn_assets/brandingcolors_02.png)
 GOLD = (1, 207, 255)          # #FFCF01
@@ -287,25 +285,5 @@ cv2.line(glow, (0, 640), (W, 640), (255, 200, 0), 3)
 cv2.line(glow, (0, 680), (W, 680), (200, 80, 255), 3)
 bg = cv2.add(bg, cv2.add(glow, cv2.GaussianBlur(glow, (0, 0), 9)))
 save(bg, 'backgrounds', 'vegas_night.jpg')
-
-
-# ---------------------------------------------------------------- Cody: cut out of his photo
-# the selfie (person) segmenter also works on the costume, which is person-shaped
-photo = cv2.imread(str(MASCOT_PHOTO))
-if photo is None:
-    print('Mascot photo not found, skipping mascot.png:', MASCOT_PHOTO)
-else:
-    segmenter = vision.ImageSegmenter.create_from_options(vision.ImageSegmenterOptions(
-        base_options=BaseOptions(model_asset_path=str(SEGMENTER_MODEL)), output_confidence_masks=True))
-    rgb = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(photo, cv2.COLOR_BGR2RGB))
-    person = np.squeeze(segmenter.segment(rgb).confidence_masks[0].numpy_view())
-    alpha = (np.clip((person - 0.3) / 0.4, 0, 1) * 255).astype(np.uint8)
-    n, labels, stats, _ = cv2.connectedComponentsWithStats((alpha > 0).astype(np.uint8))
-    alpha[labels != 1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])] = 0   # keep only the largest shape
-    mascot = cv2.cvtColor(photo, cv2.COLOR_BGR2BGRA)
-    mascot[..., 3] = alpha
-    x, y, w, h = cv2.boundingRect((alpha > 0).astype(np.uint8))
-    save(mascot[y:y + h, x:x + w], 'mascot.png')
-    segmenter.close()
 
 print('Placeholder art written to', ASSETS_DIR)

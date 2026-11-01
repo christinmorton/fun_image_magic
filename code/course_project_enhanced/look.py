@@ -17,7 +17,7 @@ class Look:
     preset: int = 0            # index into PRESETS
     sticker: int = -1          # index into the stickers, -1 = off
     background: int = -1       # index into the backgrounds, -1 = off
-    mascot: bool = False
+    mascot: int = -1           # index into the Cody poses, -1 = off
     frame: int = -1            # index into the frames, -1 = off
 
 
@@ -51,8 +51,8 @@ def render(img, look, art, faces=(), person_mask=None):
     picture = effect(picture)
     if look.sticker >= 0 and not stickers_first:
         picture = add_face_sticker(picture, faces, *art.stickers[look.sticker])
-    if look.mascot and art.mascot is not None:
-        picture = add_mascot(picture, art.mascot)
+    if look.mascot >= 0:
+        picture = add_mascot(picture, art.mascots[look.mascot])
     if look.frame >= 0:
         picture = apply_overlay(picture, art.frames[look.frame])
     return picture

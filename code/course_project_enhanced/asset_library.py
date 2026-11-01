@@ -20,15 +20,22 @@ STICKERS = [
 
 @dataclass
 class Art:
-    mascot: object = None                             # BGRA image, or None if missing
+    mascots: list = field(default_factory=list)       # Cody poses, BGRA images trimmed to Cody
     frames: list = field(default_factory=list)        # BGRA images
     backgrounds: list = field(default_factory=list)   # BGR images
     stickers: list = field(default_factory=list)      # (BGRA image, width_factor, lift_factor)
 
 
+def trim_transparent(img):
+    # crop away see-through padding, so sizing and placing go by the visible art
+    # (pixels that are almost invisible, like faint specks left by a cut-out, don't count)
+    x, y, w, h = cv2.boundingRect((img[..., 3] >= 16).astype('uint8'))
+    return img[y:y + h, x:x + w] if w and h else img
+
 def load_art(assets_dir):
     art = Art()
-    art.mascot = cv2.imread(str(assets_dir / 'mascot.png'), cv2.IMREAD_UNCHANGED)
+    art.mascots = [trim_transparent(cv2.imread(str(p), cv2.IMREAD_UNCHANGED))
+                   for p in sorted((assets_dir / 'mascot').glob('*.png'))]
     art.frames = [cv2.imread(str(p), cv2.IMREAD_UNCHANGED) for p in sorted((assets_dir / 'frames').glob('*.png'))]
     art.backgrounds = [cv2.imread(str(p)) for p in sorted((assets_dir / 'backgrounds').glob('*.jpg'))]
     for name, width_factor, lift_factor in STICKERS:

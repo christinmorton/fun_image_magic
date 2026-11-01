@@ -55,13 +55,17 @@ booth (`docs/extended-app.md`). `course_project_extended` stays as it is. Branch
 Photoshop cut-outs in `resources/csn_assets/`: `mascot-2025_cutout.png`,
 `cody-3-2_cutout.png`, `cody-4-2_cutout.png`. They are much cleaner than the automatic one.
 
-- [ ] Crop each cut-out tight to Cody (remove the empty transparent space) and save it in
-      `assets/mascot/`, one file per pose. The originals in `resources/` stay as they are.
-- [ ] Also trim any leftover padding when loading, so future art doesn't need cropping first
-- [ ] Keep Cody anchored to the bottom-right. `cody-4-2` is cut off at the right edge, so it
+- [x] Crop each cut-out tight to Cody (remove the empty transparent space) and save it in
+      `assets/mascot/`, one file per pose (`1_basketball`, `2_cheering`, `3_peekaboo`).
+      The originals in `resources/` stay as they are.
+- [x] Also trim any leftover padding when loading, so future art doesn't need cropping first
+- [x] Keep Cody anchored to the bottom-right. `cody-4-2` is cut off at the right edge, so it
       must sit flush with the right side.
-- [ ] Cody slider: 0 = off, then one setting per pose
-- [ ] Stop `make_assets.py` from overwriting the Cody art
+- [x] Cody slider: 0 = off, then one setting per pose (`M` cycles through them)
+- [x] Stop `make_assets.py` from overwriting the Cody art (it no longer makes Cody at all)
+- [x] Size Cody by height (3/4 of the picture) and width (45%), whichever is smaller, so the
+      wide half-body poses don't cover the people in the photo
+- [ ] Later: `3_peekaboo` is also cut off at the top (ear tips), which shows as a flat edge
 
 ## 4. Four-slot editor
 
