@@ -17,6 +17,16 @@ def photo_ttl_seconds():
     except ValueError:
         return 7200
 
+def ai_daily_limit():
+    # how many AI images may be made per UTC day (AI_DAILY_LIMIT in .env; default 100)
+    try:
+        return max(0, int(os.environ.get('AI_DAILY_LIMIT', 100)))
+    except ValueError:
+        return 100
+
+def ai_configured():
+    return bool(os.environ.get('GEMINI_API_KEY'))
+
 def service_token():
     # the shared secret Laravel sends with every /v1 request (IMAGE_SERVICE_TOKEN in .env);
     # read on each call, so a changed environment (or a test) takes effect straight away

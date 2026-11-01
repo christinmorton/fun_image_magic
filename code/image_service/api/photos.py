@@ -58,6 +58,13 @@ class PhotoStore:
             self._photos[photo.photo_id] = photo
             return photo
 
+    def find_person(self, image):
+        # the person mask of any image (used to check AI results), or None if nobody is there
+        with self._lock:
+            _, person_mask = self.tracker.analyse_still(image)
+        found = person_mask is not None and float((person_mask > 0.5).mean()) > 0.01
+        return person_mask if found else None
+
     def get(self, photo_id):
         with self._lock:
             self._purge()

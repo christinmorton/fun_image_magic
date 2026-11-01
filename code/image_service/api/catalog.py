@@ -5,6 +5,7 @@ from dataclasses import asdict
 import cv2
 from pydantic import BaseModel
 
+from core.ai import AI_PRESETS
 from core.filters import KERNEL_NAMES, PRESETS
 from core.look import Look
 from core.masks import FOCUS_MODES
@@ -19,6 +20,11 @@ class CatalogItem(BaseModel):
     name: str
     thumbnail: str | None = None       # a /v1/... URL for the picture, when there is one
 
+class AiPresetItem(BaseModel):
+    key: str                           # what to send to POST /v1/ai/jobs, e.g. "comic"
+    name: str
+    kind: str                          # "style" or "background"
+
 class Catalog(BaseModel):
     presets: list[CatalogItem]
     filters: list[CatalogItem]         # the course's convolution kernels (look "kernel")
@@ -29,6 +35,7 @@ class Catalog(BaseModel):
     frames: list[CatalogItem]          # look "frame"; -1 = off
     mascots: list[CatalogItem]         # look "mascot" (Cody poses); -1 = off
     props: list[CatalogItem]           # "prop" inside each entry of look "props"
+    ai_presets: list[AiPresetItem]     # for POST /v1/ai/jobs
     off: int = -1                      # the value that switches a sticker, background, frame or mascot off
     look_defaults: dict                # a look with nothing changed
 
@@ -58,6 +65,7 @@ def build_catalog(art):
         frames=items(art.frame_names, 'frames'),
         mascots=items(art.mascot_names, 'mascots'),
         props=items(art.prop_names, 'props'),
+        ai_presets=[AiPresetItem(key=p.key, name=p.name, kind=p.kind) for p in AI_PRESETS],
         look_defaults={**asdict(Look()), 'props': []},
     )
 

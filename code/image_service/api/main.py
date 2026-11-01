@@ -7,19 +7,21 @@ from typing import Literal
 
 from fastapi import APIRouter, Body, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
 
 from core import ASSETS_DIR, MODELS_DIR
+from core.ai import AI_PRESETS_BY_KEY, GeminiGenerator
 from core.asset_library import load_art
 from core.look import render as render_look
 from core.slots import SLOT_COUNT, Slot, Slots
 from core.tracking import Tracker
 
+from .ai_jobs import AiJobs
 from .auth import require_token
 from .catalog import ART_KINDS, Catalog, art_images, build_catalog, thumbnail_png
 from .looks import ImageOptions, LookIn, encode_image, to_core_look
 from .photos import MAX_UPLOAD_BYTES, PhotoStore, decode_upload
-from .settings import SERVICE_VERSION, photo_ttl_seconds
+from .settings import SERVICE_VERSION, ai_configured, ai_daily_limit, photo_ttl_seconds, service_token
 
 
 @asynccontextmanager
@@ -30,7 +32,11 @@ async def lifespan(app):
     app.state.thumbnails = {}          # (kind, index) -> PNG bytes, made on first request
     app.state.tracker = Tracker(MODELS_DIR)
     app.state.photos = PhotoStore(app.state.tracker, photo_ttl_seconds())
+    # AI runs only when a Gemini key is configured (creating the client makes no request)
+    generator = GeminiGenerator() if ai_configured() else None
+    app.state.ai_jobs = AiJobs(app.state.photos, generator, ai_daily_limit(), service_token, photo_ttl_seconds())
     yield
+    app.state.ai_jobs.shutdown()
     app.state.tracker.close()
 
 
@@ -208,5 +214,64 @@ def compose(request: Request, body: ComposeRequest = Body(openapi_examples=COMPO
     picture, _ = slots.compose(art, body.layout.capitalize(), for_saving=True)
     data, media_type = encode_image(picture, body)
     return image_response(data, media_type, body.layout)
+
+
+class AiJobRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid', json_schema_extra={'examples': [
+        {'photo_id': 'PASTE-YOUR-PHOTO-ID', 'preset': 'comic'}]})
+    photo_id: str = Field(description='An unedited photo from POST /v1/photos')
+    preset: str = Field(description='A key from the catalog "ai_presets", e.g. "comic" or "vegas_strip"')
+    callback_url: AnyHttpUrl | None = Field(None, description='Optional: where to POST the finished job (signed)')
+
+class AiJobInfo(BaseModel):
+    job_id: str
+    photo_id: str
+    preset: str
+    status: Literal['queued', 'running', 'done', 'failed']
+    result_photo_id: str | None = Field(None, description='When done: a new photo to render with any look')
+    person_kept: bool | None = Field(None, description='Backgrounds: was the original person put back on top?')
+    error: str | None = None
+    created_at: datetime
+    finished_at: datetime | None = None
+
+class AiUsage(BaseModel):
+    date: str                          # UTC day
+    used: int
+    limit: int                         # AI_DAILY_LIMIT
+    remaining: int
+    estimated_cost_usd: float
+
+def ai_jobs(request):
+    jobs = request.app.state.ai_jobs
+    if jobs.generator is None:
+        raise HTTPException(503, 'AI is not configured: set GEMINI_API_KEY in the image service .env')
+    return jobs
+
+@v1.post('/ai/jobs', status_code=202, response_model=AiJobInfo, tags=['ai'])
+def start_ai_job(body: AiJobRequest, request: Request):
+    # start an AI preset on a photo; it runs in the background (10-30 s). Poll
+    # GET /v1/ai/jobs/{job_id}, or give a callback_url to be told when it's done.
+    # Tip: send the unedited photo, then render the result with frames and props on top.
+    jobs = ai_jobs(request)
+    if body.preset not in AI_PRESETS_BY_KEY:
+        raise HTTPException(422, f'Unknown AI preset "{body.preset}"; use one of {list(AI_PRESETS_BY_KEY)}')
+    photo = stored_photo(request, body.photo_id)
+    if not jobs.limit.try_use():
+        raise HTTPException(429, f'The daily AI limit ({jobs.limit.limit} images) has been reached; '
+                                 'it resets at midnight UTC (AI_DAILY_LIMIT in .env)')
+    job = jobs.submit(photo, body.preset, str(body.callback_url) if body.callback_url else None)
+    return job.as_dict()
+
+@v1.get('/ai/jobs/{job_id}', response_model=AiJobInfo, tags=['ai'])
+def get_ai_job(job_id: str, request: Request):
+    job = request.app.state.ai_jobs.get(job_id)
+    if job is None:
+        raise HTTPException(404, f'AI job "{job_id}" not found (it may have expired)')
+    return job.as_dict()
+
+@v1.get('/ai/usage', response_model=AiUsage, tags=['ai'])
+def ai_usage(request: Request):
+    # today's AI images against the daily limit, with an estimated cost
+    return request.app.state.ai_jobs.limit.usage()
 
 app.include_router(v1)
