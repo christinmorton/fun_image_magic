@@ -8,7 +8,7 @@ Written 2026-10-31 to pick up in a later session. **No code has been written yet
 The local notes below stay for reference. Before AI, the plan is masking and scene props
 (`docs/enhanced-plan.md`, steps 5–6).
 
-### Provider chosen: Google Nano Banana 2.1 (from Google's docs, 2026-11-01)
+## Provider chosen: Google Nano Banana 2.1 (from Google's docs, 2026-11-01)
 
 - **Model** `gemini-nano-banana-2.1` (stable, updated Oct 2026). Text, image or PDF in;
   image and text out. Up to 14 reference images, with character consistency.
