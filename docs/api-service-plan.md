@@ -155,7 +155,11 @@ work end to end.
    `.venv` from `requirements.txt`. No behaviour change: 26 tests pass, and 102 screens and
    saved files from all seven scripted scenarios are pixel-identical to
    `course_project_enhanced`.
-2. **FastAPI skeleton:** `/health`, `/v1/catalog`, auth, the OpenAPI docs page.
+2. ✅ **FastAPI skeleton** (done 2026-11-01): `/health`; `/v1/catalog` with the look number,
+   name and thumbnail URL of every option; `/v1/catalog/{kind}/{index}/thumbnail.png`;
+   Bearer-token auth (`IMAGE_SERVICE_TOKEN`; without one, `/v1` refuses with 503); `/docs`.
+   34 tests pass, and a real uvicorn server was checked over HTTP. Start it with
+   `.venv\Scripts\python.exe -m uvicorn api.main:app --port 8000`.
 3. **Photos and rendering:** `/v1/photos` (with the expiring cache), `/v1/render`,
    `/v1/compose`, and tests using test images.
 4. **Laravel test call:** a minimal Laravel route that uploads a photo and shows the
