@@ -171,9 +171,23 @@ work end to end.
      and the result is pixel-identical to the desktop engine.
 4. **Laravel test call:** a minimal Laravel route that uploads a photo and shows the
    rendered result.
-5. **AI jobs:** `core/ai.py` (from the trial), `/v1/ai/jobs` with background processing,
-   presets in the catalog, a spending cap, and alignment-checked AI backgrounds.
-6. **Privacy and limits:** photo expiry, `DELETE`, maximum upload size, rate limits.
+5. ✅ **AI jobs** (done 2026-11-01):
+   - `core/ai.py`: nine presets (5 styles, 4 backgrounds), Nano Banana 2.1, and backgrounds
+     that put the original person back only if their mask overlaps by 85% or more.
+   - `POST /v1/ai/jobs` (202, 2 worker threads) and `GET /v1/ai/jobs/{id}`; the result is a
+     new photo to render with any look.
+   - An optional signed webhook (`X-Image-Service-Signature: sha256=<HMAC of the body with
+     the token>`).
+   - `AI_DAILY_LIMIT` (default 100/day, then 429), and `GET /v1/ai/usage` with an estimated
+     cost. Without `GEMINI_API_KEY`, 503.
+   - Tested with fake generators only; no paid call has been made through the service yet.
+6. ✅ **Privacy and limits** (done 2026-11-01):
+   - Photos only in memory, expiring (`PHOTO_TTL_SECONDS`); `DELETE /v1/photos/{id}`.
+   - `DELETE /v1/photos` wipes every photo and AI job (end of an event).
+   - 15 MB upload cap.
+   - `RATE_LIMIT_PER_MINUTE` (default 120) on uploads, renders, layouts and AI jobs: 429
+     with `Retry-After`.
+   - 67 tests pass.
 7. **Video:** option A (recorded clips), then decide on B or C.
 
 ## Open decisions
