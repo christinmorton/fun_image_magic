@@ -49,6 +49,14 @@ class TestHealthAndAuth(ApiTestCase):
         self.assertEqual(self.client.get('/v1/catalog', headers={'Authorization': 'Bearer wrong'}).status_code, 401)
         self.assertEqual(self.client.get('/v1/catalog', headers=AUTH).status_code, 200)
 
+    def test_bearer_typed_twice_still_works(self):
+        # pasting "Bearer <token>" into the /docs Authorize box sends "Bearer Bearer <token>"
+        response = self.client.get('/v1/catalog', headers={'Authorization': f'Bearer Bearer {TOKEN}'})
+        self.assertEqual(response.status_code, 200)
+        wrong = self.client.get('/v1/catalog', headers={'Authorization': 'Bearer Bearer nope'})
+        self.assertEqual(wrong.status_code, 401)
+        self.assertIn('paste only the token', wrong.json()['detail'])
+
     def test_no_token_configured_refuses_everything(self):
         os.environ['IMAGE_SERVICE_TOKEN'] = ''
         response = self.client.get('/v1/catalog', headers=AUTH)

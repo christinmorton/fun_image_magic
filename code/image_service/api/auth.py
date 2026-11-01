@@ -16,6 +16,12 @@ def require_token(credentials: HTTPAuthorizationCredentials | None = Depends(bea
     if not expected:
         # refuse everything rather than run unprotected by accident
         raise HTTPException(503, 'IMAGE_SERVICE_TOKEN is not set on the image service')
+    token = credentials.credentials.strip() if credentials else ''
+    if token.lower().startswith('bearer '):
+        # "Bearer <token>" typed into the /docs Authorize box, which adds its own "Bearer"
+        token = token[len('bearer '):].strip()
     # compare_digest takes the same time whether the token is close or not (safer)
-    if credentials is None or not hmac.compare_digest(credentials.credentials.encode(), expected.encode()):
-        raise HTTPException(401, 'Missing or wrong token', headers={'WWW-Authenticate': 'Bearer'})
+    if not token or not hmac.compare_digest(token.encode(), expected.encode()):
+        raise HTTPException(401, 'Missing or wrong token. Send "Authorization: Bearer <IMAGE_SERVICE_TOKEN>". '
+                                 'In /docs, click Authorize and paste only the token.',
+                            headers={'WWW-Authenticate': 'Bearer'})
