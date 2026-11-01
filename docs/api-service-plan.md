@@ -160,8 +160,15 @@ work end to end.
    Bearer-token auth (`IMAGE_SERVICE_TOKEN`; without one, `/v1` refuses with 503); `/docs`.
    34 tests pass, and a real uvicorn server was checked over HTTP. Start it with
    `.venv\Scripts\python.exe -m uvicorn api.main:app --port 8000`.
-3. **Photos and rendering:** `/v1/photos` (with the expiring cache), `/v1/render`,
-   `/v1/compose`, and tests using test images.
+3. ✅ **Photos and rendering** (done 2026-11-01):
+   - `POST /v1/photos`: up to 15 MB, long side shrunk to 2048 px, analysed once.
+   - `GET` and `DELETE /v1/photos/{id}`.
+   - An in-memory store with expiry (`PHOTO_TTL_SECONDS`, default 2 h; max 200 photos).
+   - `POST /v1/render`: the look is checked against the catalog; PNG or JPEG, optional
+     `max_width`.
+   - `POST /v1/compose`: strip or grid, up to 4 slots, `null` for empty.
+   - 47 tests pass. On a real server with a real portrait: upload 0.07 s, render 0.07 s,
+     and the result is pixel-identical to the desktop engine.
 4. **Laravel test call:** a minimal Laravel route that uploads a photo and shows the
    rendered result.
 5. **AI jobs:** `core/ai.py` (from the trial), `/v1/ai/jobs` with background processing,
