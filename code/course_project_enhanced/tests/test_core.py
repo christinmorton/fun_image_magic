@@ -1,6 +1,7 @@
 # Quick checks for the picture code (no webcam or windows needed).
 # Run from the course_project_enhanced folder:
 #   .\.venv\Scripts\python.exe -m unittest discover tests
+import os
 import sys
 import tempfile
 import unittest
@@ -14,6 +15,7 @@ sys.path.insert(0, str(APP_DIR))
 
 from asset_library import STICKERS, load_art, trim_transparent   # noqa: E402
 from booth import PhotoStrip                          # noqa: E402
+from env_file import load_env                         # noqa: E402
 from filters import KERNELS, PRESETS                  # noqa: E402
 from look import Look, render                         # noqa: E402
 from masks import FOCUS_MODES, apply_focus, refine_mask   # noqa: E402
@@ -160,6 +162,25 @@ class TestSources(unittest.TestCase):
             self.assertTrue(w <= MAX_IMAGE_W and h <= MAX_IMAGE_H)
             self.assertEqual(load_image(str(small)).shape[:2], (200, 300))
             self.assertIsNone(load_image(str(Path(tmp) / 'missing.png')))
+
+
+class TestEnvFile(unittest.TestCase):
+    def test_reads_keys_but_keeps_existing_ones(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / '.env'
+            path.write_text('# a comment\nTEST_KEY_A=abc123\nTEST_KEY_B="quoted"\nTEST_KEY_EMPTY=\n'
+                            'TEST_KEY_SET=from-file\n', encoding='utf-8')
+            os.environ['TEST_KEY_SET'] = 'already-set'
+            try:
+                loaded = load_env(path)
+                self.assertEqual(sorted(loaded), ['TEST_KEY_A', 'TEST_KEY_B'])
+                self.assertEqual(os.environ['TEST_KEY_A'], 'abc123')
+                self.assertEqual(os.environ['TEST_KEY_B'], 'quoted')
+                self.assertEqual(os.environ['TEST_KEY_SET'], 'already-set')   # not overwritten
+                self.assertEqual(load_env(Path(tmp) / 'missing.env'), [])    # no file is fine
+            finally:
+                for name in ('TEST_KEY_A', 'TEST_KEY_B', 'TEST_KEY_SET'):
+                    os.environ.pop(name, None)
 
 
 class TestPhotoStrip(unittest.TestCase):

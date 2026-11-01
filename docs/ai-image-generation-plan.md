@@ -8,6 +8,27 @@ Written 2026-10-31 to pick up in a later session. **No code has been written yet
 The local notes below stay for reference. Before AI, the plan is masking and scene props
 (`docs/enhanced-plan.md`, steps 5–6).
 
+### Provider chosen: Google Nano Banana 2.1 (from Google's docs, 2026-11-01)
+
+- **Model** `gemini-nano-banana-2.1` (stable, updated Oct 2026). Text, image or PDF in;
+  image and text out. Up to 14 reference images, with character consistency.
+- **Price** $0.0336 per 1K image ($0.0504 at 2K); input $1.50 per 1M tokens. Batch costs
+  about half. **No free tier** for image models, so the key needs billing. On the paid tier,
+  Google does **not** use content to improve its products.
+- **Python** library `google-genai` (2.34.0, in `requirements.txt`). Uses
+  `client.interactions.create(model=..., input=[text and base64 images],
+  response_format={'type': 'image', 'aspect_ratio': ..., 'image_size': '1K'})`; the image
+  comes back base64 in `interaction.output_image.data`.
+- **No mask input:** edits are described in words ("change only the background"). Plan:
+  ask for the background, then put the **original person back on top** with our own mask
+  (step 5), so faces are never altered.
+- **No transparent output:** cartoon Cody is drawn on bright green, then the green is removed
+  (a chroma key), giving a transparent prop.
+- Every output carries an invisible **SynthID** watermark.
+- **Trial ready:** `experiments/ai_trial.py photo.jpg` makes a comic style, a Vegas
+  background (plus a person-kept version) and a cartoon Cody. About $0.10–0.15 per run.
+  Checked offline with a fake client. Outputs go to `experiments/output/` (ignored by git).
+
 ---
 
 ## Starting point
