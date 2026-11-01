@@ -149,9 +149,12 @@ work end to end.
 
 ## Build order (proposed)
 
-1. **New project folder** `code/image_service/`: move the engine into `core/`, the desktop
-   app into `desktop/`, and the tests along with it. No behaviour change (check with the
-   tests and a screen comparison, as before).
+1. ✅ **New project folder** `code/image_service/` (done 2026-11-01, branch
+   `image-service`): the engine is in `core/` (with `assets/` and `models/`), the desktop app
+   in `desktop/`, plus `tools/`, `experiments/`, `tests/` and an empty `api/`. It has its own
+   `.venv` from `requirements.txt`. No behaviour change: 26 tests pass, and 102 screens and
+   saved files from all seven scripted scenarios are pixel-identical to
+   `course_project_enhanced`.
 2. **FastAPI skeleton:** `/health`, `/v1/catalog`, auth, the OpenAPI docs page.
 3. **Photos and rendering:** `/v1/photos` (with the expiring cache), `/v1/render`,
    `/v1/compose`, and tests using test images.
