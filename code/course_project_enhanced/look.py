@@ -3,7 +3,6 @@
 from dataclasses import dataclass
 
 import cv2
-import numpy as np
 
 from filters import KERNELS, PRESETS
 from overlays import add_face_sticker, add_mascot, apply_overlay, swap_background
@@ -28,23 +27,21 @@ def render(img, look, art, faces=(), person_mask=None):
     if look.background >= 0:
         color_original = swap_background(color_original, person_mask, art.backgrounds[look.background])
 
-    gray_original = cv2.cvtColor(color_original, cv2.COLOR_BGR2GRAY)
-
-
-    # apply the filters
-    color_modified = cv2.filter2D(color_original, -1, KERNELS[look.kernel])
-    grey_modified = cv2.filter2D(gray_original, -1, KERNELS[look.kernel])
-
-
-    # apply the brightness and contrast
-    color_modified = cv2.addWeighted(color_modified, look.contrast, np.zeros_like(color_original), 0, look.brightness - 50)
-    grey_modified = cv2.addWeighted(grey_modified, look.contrast, np.zeros_like(gray_original), 0, look.brightness - 50)
-
-    # pick colour or grey, then apply the preset, stickers, mascot and frame (in that order)
+    # pick colour or grey first, so only the version on screen gets processed
     if look.grayscale == 0:
-        picture = color_modified
+        modified = color_original
     else:
-        picture = cv2.cvtColor(grey_modified, cv2.COLOR_GRAY2BGR)
+        modified = cv2.cvtColor(color_original, cv2.COLOR_BGR2GRAY)
+
+    # apply the filter
+    modified = cv2.filter2D(modified, -1, KERNELS[look.kernel])
+
+    # apply the brightness and contrast (the second image has weight 0, so it can be any
+    # same-size image; reusing this one avoids building a new all-zero image every frame)
+    modified = cv2.addWeighted(modified, look.contrast, modified, 0, look.brightness - 50)
+
+    # then the preset, stickers, mascot and frame (in that order)
+    picture = modified if look.grayscale == 0 else cv2.cvtColor(modified, cv2.COLOR_GRAY2BGR)
 
     picture = PRESETS[look.preset][1](picture)
     if look.sticker >= 0:

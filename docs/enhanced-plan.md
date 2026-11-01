@@ -41,7 +41,7 @@ booth (`docs/extended-app.md`). `course_project_extended` stays as it is. Branch
 - [ ] Gaussian blurs only blur up and down: build proper 2D kernels
 - [ ] Contrast slider jumps in whole steps: steps of 0.1 (slider 0–30 divided by 10)
 - [ ] Closing a window with the X doesn't exit: quit cleanly when either window closes
-- [ ] Both colour and grey versions are processed every frame: process only the one on screen
+- [x] Both colour and grey versions are processed every frame: process only the one on screen
 - [ ] Frames are stretched on non-4:3 pictures: scale evenly, then stretch only the plain
       border sections, so corners and captions keep their shape
 - [ ] Stickers don't line up with Pop Art and Mirror: add them before those presets

@@ -50,6 +50,20 @@ class TestRender(unittest.TestCase):
         art = load_art(APP_DIR / 'assets')
         self.assertTrue(np.array_equal(render(img.copy(), Look(), art), img))
 
+    def test_course_sliders_match_the_original_method(self):
+        # the course version processed both colour and grey, then picked one
+        img = test_photo()
+        art = load_art(APP_DIR / 'assets')
+        for grayscale in (0, 1):
+            look = Look(contrast=2, brightness=60, kernel=1, grayscale=grayscale)
+            source = img if grayscale == 0 else cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            expected = cv2.filter2D(source, -1, KERNELS[1])
+            expected = cv2.addWeighted(expected, 2, np.zeros_like(source), 0, 10)
+            if grayscale:
+                expected = cv2.cvtColor(expected, cv2.COLOR_GRAY2BGR)
+            with self.subTest(grayscale=grayscale):
+                self.assertTrue(np.array_equal(render(img.copy(), look, art), expected))
+
     def test_frame_and_mascot_keep_size(self):
         img = test_photo(960, 639)
         art = load_art(APP_DIR / 'assets')
