@@ -23,6 +23,7 @@ from asset_library import load_art
 from booth import PhotoStrip
 from filters import KERNELS, PRESETS
 from look import Look, render
+from masks import FOCUS_MODES
 from slots import LAYOUTS, SLOT_COUNT, Slots
 from sources import PictureSource, choose_image_file, load_image
 from tracking import Tracker
@@ -65,6 +66,7 @@ def read_look():
         background=cv2.getTrackbarPos('Background', 'controls') - 1,    # -1 = off
         mascot=cv2.getTrackbarPos('Cody', 'controls') - 1,              # -1 = off
         frame=cv2.getTrackbarPos('Frame', 'controls') - 1,              # -1 = off
+        focus=cv2.getTrackbarPos('Focus', 'controls'),                  # 0 = off
     )
 
 def show_look(look):
@@ -78,6 +80,7 @@ def show_look(look):
     cv2.setTrackbarPos('Background', 'controls', look.background + 1)
     cv2.setTrackbarPos('Cody', 'controls', look.mascot + 1)
     cv2.setTrackbarPos('Frame', 'controls', look.frame + 1)
+    cv2.setTrackbarPos('Focus', 'controls', look.focus)
 
 def outlined_text(img, text, org, scale, thickness, outline):
     # white text with a dark outline, readable on any background
@@ -138,7 +141,7 @@ cv2.namedWindow('controls')
 # key help shown under the trackbars in the controls window
 help_lines = ['Click the video, then press:',
               '1-9, 0 preset   [ ] previous/next preset',
-              'F sticker   B background   O frame',
+              'F sticker   B background   O frame   P focus',
               'M Cody (poses)   S save   Q quit',
               'SPACE photo strip (3-2-1 countdown)',
               'U upload an image   W webcam',
@@ -167,13 +170,14 @@ cv2.createTrackbar('Sticker', 'controls', 0, len(art.stickers), dummy)         #
 cv2.createTrackbar('Background', 'controls', 0, len(art.backgrounds), dummy)   # 0 = off
 cv2.createTrackbar('Cody', 'controls', 0, len(art.mascots), dummy)            # 0 = off, then each pose
 cv2.createTrackbar('Frame', 'controls', 1 if art.frames else 0, len(art.frames), dummy)   # 0 = off
+cv2.createTrackbar('Focus', 'controls', 0, len(FOCUS_MODES) - 1, dummy)   # 0 = off, color pop, portrait blur, mask preview
 
 # four-slot editor sliders
 cv2.createTrackbar('Slot', 'controls', 1, SLOT_COUNT, dummy)                   # which slot (1-4)
 cv2.setTrackbarMin('Slot', 'controls', 1)
 cv2.createTrackbar('Layout', 'controls', 0, len(LAYOUTS) - 1, dummy)          # 0 = strip, 1 = grid
 
-print('Keys (click the video first): 1-9, 0 presets | [ ] prev/next preset | f face sticker | b background | m Cody poses | o frame')
+print('Keys (click the video first): 1-9, 0 presets | [ ] prev/next preset | f face sticker | b background | m Cody poses | o frame | p focus')
 print('      space photo strip | s save | u upload an image | w webcam | q quit')
 print('      four-slot editor: a add picture to slot | e editor on/off | tab next slot | l strip/grid | x clear slot')
 
@@ -206,7 +210,7 @@ while True:
         if img is None:
             break
         # find faces / people if needed, and make the finished picture
-        faces, person_mask = tracker.analyse(img, find_faces=look.sticker >= 0, find_person=look.background >= 0)
+        faces, person_mask = tracker.analyse(img, find_faces=look.sticker >= 0, find_person=look.needs_person_mask())
         picture = render(img, look, art, faces, person_mask)
     # what this frame shows (a key below may switch modes, but that shows from the next frame)
     showing_editor = editing
@@ -282,6 +286,9 @@ while True:
     elif key == ord('o'):
         # cycle branded frames: each frame -> off -> first frame
         cv2.setTrackbarPos('Frame', 'controls', (look.frame + 2) % (len(art.frames) + 1))
+    elif key == ord('p'):
+        # cycle person focus: off -> color pop -> portrait blur -> mask preview -> off
+        cv2.setTrackbarPos('Focus', 'controls', (look.focus + 1) % len(FOCUS_MODES))
     elif key == ord('['):
         cv2.setTrackbarPos('Preset', 'controls', (look.preset - 1) % len(PRESETS))
     elif key == ord(']'):
@@ -290,15 +297,17 @@ while True:
         cv2.setTrackbarPos('Preset', 'controls', min(PRESET_KEYS.index(chr(key & 0xFF)), len(PRESETS) - 1))
 
     # anything drawn on `shown` is only on screen, never in saved photos
+    # the label is the preset's name, plus the focus mode when one is on
+    label = PRESETS[look.preset][0] + (f' + {FOCUS_MODES[look.focus]}' if look.focus else '')
     if showing_editor:
         # messages show in the editor's title bar, in place of the key hints
-        title = f'Editing slot {slots.selected + 1} of {SLOT_COUNT} ({layout}): {PRESETS[look.preset][0]}'
+        title = f'Editing slot {slots.selected + 1} of {SLOT_COUNT} ({layout}): {label}'
         hint = 'TAB next slot  L strip/grid  U upload  X clear  S save  E camera'
         shown = editor_screen(picture, rects[slots.selected], title,
                               message if time.time() < message_until else hint)
     else:
         shown = picture.copy()
-        outlined_text(shown, PRESETS[look.preset][0], (20, 40), 1.2, 2, 6)
+        outlined_text(shown, label, (20, 40), 1.2, 2, 6)
         outlined_text(shown, 'SPACE strip  A add to slot  E editor  S save  U upload  W webcam  Q quit', (20, 70), 0.5, 1, 4)
 
         # photo strip: count down, take a shot, repeat, then save the strip and open

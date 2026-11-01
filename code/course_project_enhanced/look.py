@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import cv2
 
 from filters import KERNELS, MOVES_PIXELS, PRESETS
+from masks import apply_focus, refine_mask
 from overlays import add_face_sticker, add_mascot, apply_overlay, swap_background
 
 
@@ -19,13 +20,22 @@ class Look:
     background: int = -1       # index into the backgrounds, -1 = off
     mascot: int = -1           # index into the Cody poses, -1 = off
     frame: int = -1            # index into the frames, -1 = off
+    focus: int = 0             # index into masks.FOCUS_MODES, 0 = off
+
+    def needs_person_mask(self):
+        return self.background >= 0 or self.focus > 0
 
 
 def render(img, look, art, faces=(), person_mask=None):
     # img is the unedited picture; faces and person_mask come from Tracker.analyse()
     color_original = img
-    if look.background >= 0:
-        color_original = swap_background(color_original, person_mask, art.backgrounds[look.background])
+
+    # the person mask is cleaned up once, then used by the background swap and focus effects
+    mask = refine_mask(person_mask, img) if look.needs_person_mask() and person_mask is not None else None
+    if look.background >= 0 and mask is not None:
+        color_original = swap_background(color_original, mask, art.backgrounds[look.background])
+    if look.focus > 0 and mask is not None:
+        color_original = apply_focus(color_original, look.focus, mask)
 
     # pick colour or grey first, so only the version on screen gets processed
     if look.grayscale == 0:

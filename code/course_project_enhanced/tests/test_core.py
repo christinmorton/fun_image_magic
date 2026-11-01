@@ -16,6 +16,7 @@ from asset_library import STICKERS, load_art, trim_transparent   # noqa: E402
 from booth import PhotoStrip                          # noqa: E402
 from filters import KERNELS, PRESETS                  # noqa: E402
 from look import Look, render                         # noqa: E402
+from masks import FOCUS_MODES, apply_focus, refine_mask   # noqa: E402
 from overlays import fit_frame, paste_centered        # noqa: E402
 from slots import BORDER, Slots                       # noqa: E402
 from sources import MAX_IMAGE_H, MAX_IMAGE_W, load_image   # noqa: E402
@@ -169,6 +170,45 @@ class TestPhotoStrip(unittest.TestCase):
             _, finished = strip.update(img, now=t)
         self.assertEqual(finished.shape, (4 * (80 + 24), 100 + 24, 3))
         self.assertFalse(strip.shooting)
+
+
+class TestMasks(unittest.TestCase):
+    def raw_mask(self):
+        # a soft "person" block in the middle, plus a stray speck the model got wrong
+        mask = np.zeros((480, 640, 1), np.float32)
+        mask[100:400, 200:440] = 0.9
+        mask[20:23, 20:23] = 0.9
+        return cv2.GaussianBlur(mask, (0, 0), 6)[..., None]
+
+    def test_refine_mask_cleans_up(self):
+        refined = refine_mask(self.raw_mask(), test_photo())
+        self.assertEqual(refined.shape, (480, 640))
+        self.assertTrue(0 <= refined.min() and refined.max() <= 1)
+        self.assertAlmostEqual(float(refined[250, 320]), 1.0, places=3)   # firm inside the person
+        self.assertLess(float(refined[21, 21]), 0.05)                      # speck removed
+        raw = np.squeeze(self.raw_mask())
+        soft = lambda m: int(((m > 0.05) & (m < 0.95)).sum())
+        self.assertLess(soft(refined), soft(raw))                         # narrower soft edge
+
+    def test_focus_modes(self):
+        img = test_photo()
+        mask = refine_mask(self.raw_mask(), img)
+        for mode, name in enumerate(FOCUS_MODES):
+            with self.subTest(mode=name):
+                out = apply_focus(img.copy(), mode, mask)
+                self.assertEqual((out.shape, out.dtype), (img.shape, np.uint8))
+        popped = apply_focus(img, 1, mask)                                 # color pop
+        b, g, r = popped[20, 600].tolist()
+        self.assertTrue(b == g == r)                                       # background turned grey
+        self.assertEqual(popped[250, 320].tolist(), img[250, 320].tolist())   # person unchanged
+
+    def test_focus_off_needs_no_mask(self):
+        art = load_art(APP_DIR / 'assets')
+        self.assertFalse(Look().needs_person_mask())
+        self.assertTrue(Look(focus=2).needs_person_mask())
+        img = test_photo()
+        # no mask available (e.g. MediaPipe found nothing): focus is skipped, not a crash
+        self.assertTrue(np.array_equal(render(img.copy(), Look(focus=1), art, person_mask=None), img))
 
 
 class FakeTracker:
