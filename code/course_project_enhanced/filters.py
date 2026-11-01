@@ -147,6 +147,10 @@ def mirror(img):
 def desert_sunset(img):
     return duotone(img, (138, 47, 49), (60, 160, 255))   # CSN purple #312F8A to sunset orange
 
+# presets that move parts of the picture around: face stickers go on before these, so
+# they get copied / mirrored along with the face instead of floating where the face was
+MOVES_PIXELS = {'Pop Art', 'Mirror'}
+
 PRESETS = [
     ('Original', lambda img: img),
     ('Vintage', lambda img: vignette(sepia(img))),

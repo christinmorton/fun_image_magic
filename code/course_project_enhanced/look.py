@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import cv2
 
-from filters import KERNELS, PRESETS
+from filters import KERNELS, MOVES_PIXELS, PRESETS
 from overlays import add_face_sticker, add_mascot, apply_overlay, swap_background
 
 
@@ -43,8 +43,13 @@ def render(img, look, art, faces=(), person_mask=None):
     # then the preset, stickers, mascot and frame (in that order)
     picture = modified if look.grayscale == 0 else cv2.cvtColor(modified, cv2.COLOR_GRAY2BGR)
 
-    picture = PRESETS[look.preset][1](picture)
-    if look.sticker >= 0:
+    # stickers go on top of the preset, except for presets that move pixels around
+    name, effect = PRESETS[look.preset]
+    stickers_first = name in MOVES_PIXELS
+    if look.sticker >= 0 and stickers_first:
+        picture = add_face_sticker(picture, faces, *art.stickers[look.sticker])
+    picture = effect(picture)
+    if look.sticker >= 0 and not stickers_first:
         picture = add_face_sticker(picture, faces, *art.stickers[look.sticker])
     if look.mascot and art.mascot is not None:
         picture = add_mascot(picture, art.mascot)

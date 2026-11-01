@@ -46,7 +46,7 @@ booth (`docs/extended-app.md`). `course_project_extended` stays as it is. Branch
       border sections, so corners and captions keep their shape. (Lines are repeated only
       inside long plain stretches. The film strip has none along its sides, so its holes
       still stretch on very tall pictures.)
-- [ ] Stickers don't line up with Pop Art and Mirror: add them before those presets
+- [x] Stickers don't line up with Pop Art and Mirror: add them before those presets
 - [x] Comic Dots is slow on large photos: make the dot size grow with the image size
       (960×720: 42 ms → 20 ms; webcam size unchanged)
 
