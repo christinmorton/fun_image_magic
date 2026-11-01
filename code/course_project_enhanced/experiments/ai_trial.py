@@ -57,6 +57,11 @@ def key_out_green(img):
     alpha = cv2.GaussianBlur(255 - green, (3, 3), 0)
     out = cv2.cvtColor(img, cv2.COLOR_BGR2BGRA)
     out[..., 3] = alpha
+    # "despill": edge pixels are part green backdrop, which shows as a green outline on light
+    # photos, so near the edge cap green at the level of the stronger of red and blue
+    near_edge = cv2.dilate((alpha < 250).astype(np.uint8), np.ones((5, 5), np.uint8)) > 0
+    b, g, r = out[..., 0], out[..., 1], out[..., 2]
+    out[..., 1] = np.where(near_edge, np.minimum(g, np.maximum(r, b)), g)
     return out
 
 

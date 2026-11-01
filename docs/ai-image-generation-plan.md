@@ -28,6 +28,13 @@ The local notes below stay for reference. Before AI, the plan is masking and sce
 - **Trial ready:** `experiments/ai_trial.py photo.jpg` makes a comic style, a Vegas
   background (plus a person-kept version) and a cartoon Cody. About $0.10–0.15 per run.
   Checked offline with a fake client. Outputs go to `experiments/output/` (ignored by git).
+- **First real run (2026-11-01, about 1 minute, about $0.10):** comic style excellent, with
+  likeness, layout and text kept. Cartoon Cody excellent and on-brand; the green edges were
+  fixed by adding a "despill" step. The AI background was photo-realistic, **but the model
+  reframed the picture**, so putting the original person back made ghost copies. In the app:
+  send only the unedited **slot photo** (frames and props go on afterwards, so branding stays
+  exact), and only put the person back when the AI kept them in the same place (check that the
+  two person masks overlap); otherwise use the AI image as it is.
 
 ---
 
