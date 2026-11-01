@@ -1,12 +1,16 @@
 # main: the FastAPI app. Run from the image_service folder:
 #   .\.venv\Scripts\python.exe -m uvicorn api.main:app --port 8000
 # then open http://127.0.0.1:8000/docs for the interactive API docs.
+import asyncio
+import json
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Body, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
 
 from core import ASSETS_DIR, MODELS_DIR
@@ -77,6 +81,18 @@ app = FastAPI(
                 'Every /v1 route needs the shared token: Authorization: Bearer <IMAGE_SERVICE_TOKEN>.',
     lifespan=lifespan,
 )
+
+
+@app.middleware('http')
+async def processing_time(request, call_next):
+    # every response says how long the service worked on it, so Laravel can log or show it:
+    #   X-Processing-Time-Ms: 68.4      Server-Timing: app;dur=68.4
+    start = time.perf_counter()
+    response = await call_next(request)
+    ms = f'{(time.perf_counter() - start) * 1000:.1f}'
+    response.headers['X-Processing-Time-Ms'] = ms
+    response.headers['Server-Timing'] = f'app;dur={ms}'
+    return response
 
 
 @app.get('/health', tags=['service'])
@@ -247,10 +263,17 @@ class AiJobInfo(BaseModel):
     photo_id: str
     preset: str
     status: Literal['queued', 'running', 'done', 'failed']
+    stage: Literal['queued', 'preparing', 'generating', 'checking_person', 'saving', 'done', 'failed']
+    stage_label: str = Field(description='The stage in words, e.g. "The AI is creating the image"')
+    progress: int = Field(description='0-100; while generating it moves on with time (an estimate)')
+    elapsed_seconds: float = Field(description='Since the work started (not counting the queue)')
+    estimated_seconds: float = Field(description='Expected total, from how long recent jobs took')
+    eta_seconds: float = Field(description='Expected time left (0 when finished)')
     result_photo_id: str | None = Field(None, description='When done: a new photo to render with any look')
     person_kept: bool | None = Field(None, description='Backgrounds: was the original person put back on top?')
     error: str | None = None
     created_at: datetime
+    started_at: datetime | None = None
     finished_at: datetime | None = None
 
 class AiUsage(BaseModel):
@@ -287,6 +310,32 @@ def get_ai_job(job_id: str, request: Request):
     if job is None:
         raise HTTPException(404, f'AI job "{job_id}" not found (it may have expired)')
     return job.as_dict()
+
+@v1.get('/ai/jobs/{job_id}/events', tags=['ai'], response_class=StreamingResponse,
+        responses={200: {'content': {'text/event-stream': {}},
+                         'description': 'Server-Sent Events: the job about once a second until it ends'}})
+async def ai_job_events(job_id: str, request: Request):
+    # a live stream of the job for a progress bar: one "progress" event about once a second
+    # (the same fields as GET /v1/ai/jobs/{id}), then one "done" or "failed" event, then it closes
+    jobs = request.app.state.ai_jobs
+    if jobs.get(job_id) is None:
+        raise HTTPException(404, f'AI job "{job_id}" not found (it may have expired)')
+
+    async def events():
+        give_up_at = time.time() + 10 * 60                  # never stream forever
+        while time.time() < give_up_at and not await request.is_disconnected():
+            job = jobs.get(job_id)
+            if job is None:
+                yield 'event: failed\ndata: {"error": "the job expired or was deleted"}\n\n'
+                return
+            event = job.status if job.status in ('done', 'failed') else 'progress'
+            yield f'event: {event}\ndata: {json.dumps(job.as_dict())}\n\n'
+            if event != 'progress':
+                return
+            await asyncio.sleep(1)
+
+    return StreamingResponse(events(), media_type='text/event-stream',
+                             headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
 
 @v1.get('/ai/usage', response_model=AiUsage, tags=['ai'])
 def ai_usage(request: Request):

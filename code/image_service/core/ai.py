@@ -75,18 +75,22 @@ def mask_overlap(a, b):
     union = np.logical_or(a, b).sum()
     return float(np.logical_and(a, b).sum() / union) if union else 0.0
 
-def run_ai_preset(image, preset, generator, find_person=None):
+def run_ai_preset(image, preset, generator, find_person=None, on_stage=None):
     # one AI preset on one unedited photo -> (new photo at the same size, details)
     # For backgrounds, the original person is put back on top so their face is never
     # altered - but only if the AI kept them in the same place (the two person masks overlap
     # enough). The model sometimes reframes the picture, and pasting the person back then
     # would leave ghost copies; in that case the AI image is used as it is.
     # find_person(image) -> person mask or None (MediaPipe), needed for backgrounds
+    # on_stage(name) is told when work moves on: "generating", then "checking_person"
+    stage = on_stage or (lambda name: None)
     h, w = image.shape[:2]
+    stage('generating')
     out = generator.generate(preset.prompt, [image], closest_aspect_ratio(w, h))
     out = cv2.resize(out, (w, h), interpolation=cv2.INTER_AREA)
     details = {'person_kept': False, 'overlap': None}
     if preset.kind == 'background' and find_person is not None:
+        stage('checking_person')
         original, new = find_person(image), find_person(out)
         if original is not None and new is not None:
             details['overlap'] = round(mask_overlap(original.reshape(h, w), new.reshape(h, w)), 3)

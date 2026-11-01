@@ -86,6 +86,15 @@ class TestRunAiPreset(unittest.TestCase):
         self.assertEqual(details['overlap'], 0.0)
         self.assertTrue(np.array_equal(out[250, 320], [10, 20, 200]))              # no ghost paste
 
+    def test_stages_are_reported(self):
+        stages = []
+        run_ai_preset(photo(), AI_PRESETS_BY_KEY['comic'], FakeGenerator(), on_stage=stages.append)
+        self.assertEqual(stages, ['generating'])
+        stages.clear()
+        run_ai_preset(photo(), AI_PRESETS_BY_KEY['red_rock'], FakeGenerator(),
+                      find_person=lambda image: None, on_stage=stages.append)
+        self.assertEqual(stages, ['generating', 'checking_person'])
+
     def test_background_without_a_person(self):
         out, details = run_ai_preset(photo(), AI_PRESETS_BY_KEY['outer_space'], FakeGenerator(),
                                      find_person=lambda image: None)
