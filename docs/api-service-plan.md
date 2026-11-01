@@ -180,7 +180,18 @@ work end to end.
      the token>`).
    - `AI_DAILY_LIMIT` (default 100/day, then 429), and `GET /v1/ai/usage` with an estimated
      cost. Without `GEMINI_API_KEY`, 503.
-   - Tested with fake generators only; no paid call has been made through the service yet.
+   - **Progress:** stages (`queued` 0% → `preparing` 5% → `generating` 10–90%, moving with
+     time against the average of recent AI calls → `checking_person` 92% → `saving` 96% →
+     `done` 100%), shown in three ways:
+     - fields on the job: `progress`, `eta_seconds`, `estimated_seconds`
+     - a webhook for every stage
+     - an SSE stream, `GET /v1/ai/jobs/{id}/events`
+   - Every response has `X-Processing-Time-Ms` / `Server-Timing`.
+   - **Real end-to-end check** (2026-11-01, about $0.07):
+     - comic finished in 13.5 s; the Vegas background in 13.0 s with the person kept
+     - 9 webhooks, all with valid signatures
+     - renders took about 30 ms
+     - the estimate improved from 22 s to 15.5 s after one job
 6. ✅ **Privacy and limits** (done 2026-11-01):
    - Photos only in memory, expiring (`PHOTO_TTL_SECONDS`); `DELETE /v1/photos/{id}`.
    - `DELETE /v1/photos` wipes every photo and AI job (end of an event).
