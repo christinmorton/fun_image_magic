@@ -16,7 +16,7 @@ sys.path.insert(0, str(SERVICE_DIR))
 from core import ASSETS_DIR                                       # noqa: E402
 from core.asset_library import STICKERS, load_art, trim_transparent   # noqa: E402
 from core.env_file import load_env                                # noqa: E402
-from core.filters import KERNELS, PRESETS                         # noqa: E402
+from core.filters import KERNEL_NAMES, KERNELS, PRESETS           # noqa: E402
 from core.look import Look, render                                # noqa: E402
 from core.masks import FOCUS_MODES, apply_focus, refine_mask      # noqa: E402
 from core.overlays import fit_frame, paste_centered               # noqa: E402
@@ -145,6 +145,18 @@ class TestAssets(unittest.TestCase):
         self.assertGreater(len(art.frames), 0)
         self.assertGreater(len(art.backgrounds), 0)
 
+
+    def test_every_item_has_a_readable_name(self):
+        art = load_art(ASSETS_DIR)
+        for items, names in [(art.frames, art.frame_names), (art.backgrounds, art.background_names),
+                             (art.stickers, art.sticker_names), (art.mascots, art.mascot_names),
+                             (art.props, art.prop_names)]:
+            self.assertEqual(len(items), len(names))
+            for name in names:
+                self.assertTrue(name and '_' not in name and not name[0].isdigit(), name)
+        self.assertIn('go csn', art.background_names)       # only a leading number is dropped
+        self.assertEqual(art.prop_names[0], 'go csn sign')
+        self.assertEqual(len(KERNEL_NAMES), len(KERNELS))
 
     def test_trim_removes_padding(self):
         img = np.zeros((100, 120, 4), np.uint8)

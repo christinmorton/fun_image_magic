@@ -17,6 +17,7 @@ emboss_kernel = np.array([[-2,-1,0], [-1,1,1], [0,1,2]])
 edge_kernel = np.array([[-1,-1,-1], [-1,8,-1], [-1,-1,-1]])
 
 KERNELS = [identity_kernel, sharpen_kernel, gaussian_kernel1, gaussian_kernel2, box_kernel, emboss_kernel, edge_kernel]
+KERNEL_NAMES = ['None', 'Sharpen', 'Blur (light)', 'Blur (strong)', 'Box blur', 'Emboss', 'Edges']
 
 
 # school colours in BGR order (placeholder: CSN blue #004990 and gold #FFCF01)
