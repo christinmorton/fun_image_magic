@@ -82,7 +82,7 @@ Photoshop cut-outs in `resources/csn_assets/`: `mascot-2025_cutout.png`,
 - [x] Choose slots with `Tab` and a Slot slider (the selected slot is outlined in gold)
 - [x] Slot photos are analysed once with image-mode MediaPipe models (video mode expects
       each frame to follow on from the last)
-- [ ] Later: click thumbnails to choose a slot
+- [x] Click a slot in the editor to choose it (added with scene props, step 6)
 
 ## 5. Masking (Roadmap Part 2, Step 10)
 
@@ -106,16 +106,20 @@ The person mask (MediaPipe selfie segmenter) is currently used raw, only for bac
 Plain transparent PNGs that are **not** tracked to faces: inserted into a photo and moved
 by hand. Face stickers stay as they are.
 
-- [ ] `assets/props/`: loaded in name order like the other art. Candidates: Cody cut-outs,
-      signs ("GO CSN!"), foam finger, trophy, speech bubbles, and later cartoon Cody
-      (step 7)
-- [ ] Each slot's look keeps its own props: which prop, position and size
-- [ ] Editor: add a prop, click to select it, drag with the mouse to move, keys to resize,
-      remove. The mouse position is mapped from the shrunk preview to the slot's photo.
-- [ ] Decide: does the existing Cody slider (fixed bottom-right) stay, or do the Cody
-      cut-outs become props? (Leaning: keep the slider as it is, and also offer Cody as
-      props.)
-- [ ] Decide: props in the editor only, or also in camera mode? (Leaning: editor first)
+- [x] `assets/props/`, loaded in name order and trimmed like the Cody poses: five placeholder
+      props from `make_assets.py` ("GO CSN!" sign, foam finger, trophy, speech bubble,
+      pennant), followed by the three Cody poses. Later: cartoon Cody (step 7).
+- [x] Each slot's look keeps its own props (`props.PlacedProp`: which prop, centre and size as
+      fractions of the photo, so they stay put at any size). Saved strips/grids include them.
+- [x] Editor: the Prop slider picks a prop and `I` adds it to the middle of the photo. Click a
+      prop to select it (outlined in light blue, brought to the front, name in the title).
+      Drag to move it, use the mouse wheel or `+`/`-` to resize it, and `D` to delete it.
+      Clicking see-through corners selects what's behind. Clicking another slot selects
+      that slot.
+- [x] Decided: the Cody slider stays as it is, and the Cody poses are *also* props
+- [x] Decided: props in the editor only, for now
+- Note: the selection outline can be one frame (about 1/30 s) ahead of the picture while
+  dragging, because mouse events arrive after the frame is drawn
 
 ## 7. AI image generation (cloud APIs first)
 

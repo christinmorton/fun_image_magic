@@ -31,13 +31,14 @@ class Slot:
 
 
 def fit_into(img, w, h, fill=255):
-    # shrink or grow img to fit inside w x h without changing its shape, centred on a plain background
+    # shrink or grow img to fit inside w x h without changing its shape, centred on a plain
+    # background; also returns where the image ended up: (x, y, width, height)
     scale = min(w / img.shape[1], h / img.shape[0])
     iw, ih = max(round(img.shape[1] * scale), 1), max(round(img.shape[0] * scale), 1)
     out = np.full((h, w, 3), fill, np.uint8)
     x, y = (w - iw) // 2, (h - ih) // 2
     out[y:y + ih, x:x + iw] = cv2.resize(img, (iw, ih), interpolation=cv2.INTER_AREA)
-    return out
+    return out, (x, y, iw, ih)
 
 def empty_cell(w, h, number):
     # what an empty slot looks like on screen
@@ -52,6 +53,7 @@ class Slots:
     def __init__(self):
         self.slots = [Slot() for _ in range(SLOT_COUNT)]
         self.selected = 0
+        self.photo_rects = {}     # from the last compose(): where each slot's photo sits (x, y, w, h)
 
     def current(self):
         return self.slots[self.selected]
@@ -79,10 +81,10 @@ class Slots:
         # on screen, empty slots show as grey placeholders; when saving, a strip leaves
         # them out and a grid shows them as plain white
         cw, ch = self.cell_size()
-        cells = []
+        cells, inside = [], {}         # inside: where each photo sits within its cell
         for i, slot in enumerate(self.slots):
             if slot.image is not None:
-                cell = fit_into(slot.picture(art), cw, ch)
+                cell, inside[i] = fit_into(slot.picture(art), cw, ch)
             elif not for_saving:
                 cell = empty_cell(cw, ch, i + 1)
             elif layout == 'Grid':
@@ -100,4 +102,14 @@ class Slots:
         else:
             img = np.vstack([np.hstack([cells[0][1], cells[1][1]]), np.hstack([cells[2][1], cells[3][1]])])
             rects = {i: ((k % 2) * bw, (k // 2) * bh, bw, bh) for k, (i, _) in enumerate(cells)}
+        # where each photo itself sits in the layout (inside its border), for mouse clicks
+        self.photo_rects = {i: (rects[i][0] + BORDER + x, rects[i][1] + BORDER + y, w, h)
+                            for i, (x, y, w, h) in inside.items()}
         return img, rects
+
+    def slot_at(self, lx, ly, rects):
+        # which slot's cell contains the layout point (lx, ly), or None
+        for i, (x, y, w, h) in rects.items():
+            if x <= lx < x + w and y <= ly < y + h:
+                return i
+        return None

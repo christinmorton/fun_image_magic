@@ -24,6 +24,8 @@ class Art:
     frames: list = field(default_factory=list)        # BGRA images
     backgrounds: list = field(default_factory=list)   # BGR images
     stickers: list = field(default_factory=list)      # (BGRA image, width_factor, lift_factor)
+    props: list = field(default_factory=list)         # scene props, BGRA images trimmed to the art
+    prop_names: list = field(default_factory=list)    # a short name for each prop, for the screen
 
 
 def trim_transparent(img):
@@ -42,4 +44,12 @@ def load_art(assets_dir):
         png = cv2.imread(str(assets_dir / 'stickers' / name), cv2.IMREAD_UNCHANGED)
         if png is not None:
             art.stickers.append((png, width_factor, lift_factor))
+    # scene props: everything in assets/props/, then the Cody poses (so Cody can be placed
+    # anywhere too); names drop the "1_" ordering prefix, e.g. "1_go_csn_sign" -> "go csn sign"
+    for path in sorted((assets_dir / 'props').glob('*.png')):
+        art.props.append(trim_transparent(cv2.imread(str(path), cv2.IMREAD_UNCHANGED)))
+        art.prop_names.append(path.stem.split('_', 1)[-1].replace('_', ' '))
+    for path, pose in zip(sorted((assets_dir / 'mascot').glob('*.png')), art.mascots):
+        art.props.append(pose)
+        art.prop_names.append('Cody ' + path.stem.split('_', 1)[-1].replace('_', ' '))
     return art

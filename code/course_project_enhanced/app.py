@@ -13,6 +13,7 @@
 import ctypes
 import sys
 import time
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
@@ -24,6 +25,7 @@ from booth import PhotoStrip
 from filters import KERNELS, PRESETS
 from look import Look, render
 from masks import FOCUS_MODES
+from props import add_prop, bring_to_front, move_prop, prop_at, prop_box, remove_prop, resize_prop
 from slots import LAYOUTS, SLOT_COUNT, Slots
 from sources import PictureSource, choose_image_file, load_image
 from tracking import Tracker
@@ -48,7 +50,7 @@ PRESET_KEYS = '1234567890'
 TAB_KEY = 9
 
 # the editor screen: the strip/grid preview is shrunk to fit, under a title bar
-EDITOR_MAX_W, EDITOR_MAX_H, EDITOR_BAR_H = 1200, 860, 80
+EDITOR_MAX_W, EDITOR_MAX_H, EDITOR_BAR_H = 1200, 840, 104
 
 #dummy function that does nothing
 def dummy(value):
@@ -87,20 +89,34 @@ def outlined_text(img, text, org, scale, thickness, outline):
     cv2.putText(img, text, org, cv2.FONT_HERSHEY_SIMPLEX, scale, (0, 0, 0), outline)
     cv2.putText(img, text, org, cv2.FONT_HERSHEY_SIMPLEX, scale, (255, 255, 255), thickness)
 
-def editor_screen(layout_img, selected_rect, title, hint):
-    # the strip/grid shrunk to fit the screen, the selected slot outlined in gold,
-    # under a dark bar with the title and key hints
+def editor_screen(layout_img, selected_rect, title, hints, prop_rect=None):
+    # the strip/grid shrunk to fit the screen, the selected slot outlined in gold (and the
+    # selected prop in light blue), under a dark bar with the title and two lines of hints.
+    # Also returns the view (scale, left, top), to turn mouse positions back into the layout
     scale = min(1.0, EDITOR_MAX_W / layout_img.shape[1], EDITOR_MAX_H / layout_img.shape[0])
     preview = cv2.resize(layout_img, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
     x, y, w, h = [round(v * scale) for v in selected_rect]
     cv2.rectangle(preview, (x + 2, y + 2), (x + w - 3, y + h - 3), (1, 207, 255), 4)
+    if prop_rect is not None:
+        x, y, w, h = [round(v * scale) for v in prop_rect]
+        cv2.rectangle(preview, (x, y), (x + w, y + h), (255, 200, 0), 2)
     width = max(preview.shape[1], 680)
     screen = np.full((preview.shape[0] + EDITOR_BAR_H, width, 3), 40, np.uint8)
     left = (width - preview.shape[1]) // 2
     screen[EDITOR_BAR_H:, left:left + preview.shape[1]] = preview
     cv2.putText(screen, title, (16, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 255, 255), 2, cv2.LINE_AA)
-    cv2.putText(screen, hint, (16, 64), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 200, 200), 1, cv2.LINE_AA)
-    return screen
+    for i, hint in enumerate(hints):
+        cv2.putText(screen, hint, (16, 64 + 26 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 200, 200), 1, cv2.LINE_AA)
+    return screen, (scale, left, EDITOR_BAR_H)
+
+def screen_to_layout(sx, sy, view):
+    # a mouse position on the editor screen -> a position in the full-size strip/grid
+    scale, left, top = view
+    return (sx - left) / scale, (sy - top) / scale
+
+def on_mouse(event, x, y, flags, param):
+    # OpenCV calls this during waitKey; the main loop handles the events afterwards
+    mouse_events.append((event, x, y, flags))
 
 def window_closed(name):
     # True once the window's X button has been clicked
@@ -137,6 +153,8 @@ elif not source.open_webcam():
 # create teh UI windows: 'app' shows only the video, 'controls' holds the trackbars
 cv2.namedWindow('app')
 cv2.namedWindow('controls')
+mouse_events = []          # filled by on_mouse() (the editor uses the mouse for slots and props)
+cv2.setMouseCallback('app', on_mouse)
 
 # key help shown under the trackbars in the controls window
 help_lines = ['Click the video, then press:',
@@ -147,7 +165,10 @@ help_lines = ['Click the video, then press:',
               'U upload an image   W webcam',
               '- four-slot editor -',
               'A add picture to slot   E editor on/off',
-              'TAB next slot   L strip/grid   X clear slot']
+              'TAB next slot   L strip/grid   X clear slot',
+              'Click a slot to select it',
+              'Props: I add (Prop slider)   D delete',
+              'drag to move   wheel or +/- to resize']
 help_panel = np.full((22 + 32 * len(help_lines), 460, 3), 40, np.uint8)
 for i, line in enumerate(help_lines):
     cv2.putText(help_panel, line, (12, 30 + i * 32), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
@@ -176,10 +197,12 @@ cv2.createTrackbar('Focus', 'controls', 0, len(FOCUS_MODES) - 1, dummy)   # 0 = 
 cv2.createTrackbar('Slot', 'controls', 1, SLOT_COUNT, dummy)                   # which slot (1-4)
 cv2.setTrackbarMin('Slot', 'controls', 1)
 cv2.createTrackbar('Layout', 'controls', 0, len(LAYOUTS) - 1, dummy)          # 0 = strip, 1 = grid
+cv2.createTrackbar('Prop', 'controls', 0, max(len(art.props) - 1, 0), dummy)  # which prop I adds
 
 print('Keys (click the video first): 1-9, 0 presets | [ ] prev/next preset | f face sticker | b background | m Cody poses | o frame | p focus')
 print('      space photo strip | s save | u upload an image | w webcam | q quit')
 print('      four-slot editor: a add picture to slot | e editor on/off | tab next slot | l strip/grid | x clear slot')
+print('      props (editor): i add | d delete | + / - resize | mouse: click to select, drag to move, wheel to resize')
 
 
 photo_strip = PhotoStrip()
@@ -187,6 +210,22 @@ slots = Slots()
 editing = False            # False = camera, True = four-slot editor
 camera_look = None         # the camera's settings, kept while the sliders edit a slot
 message, message_until = '', 0
+selected_prop = None       # index into the selected slot's props, or None
+drag_offset = None         # while dragging a prop: (dx, dy) from the grab point to its centre
+editor_view = None         # (scale, left, top) of the last editor screen, for the mouse
+
+
+def set_props(new_props):
+    # change the selected slot's props (they live on the slot, not on the sliders)
+    slots.current().look = replace(slots.current().look, props=new_props)
+
+def photo_point(slot_index, lx, ly):
+    # a point in the strip/grid -> (u, v) as fractions of that slot's photo
+    # (outside the photo gives values below 0 or above 1), or None if the slot is empty
+    if slot_index not in slots.photo_rects:
+        return None
+    x, y, w, h = slots.photo_rects[slot_index]
+    return (lx - x) / w, (ly - y) / h
 
 
 # Main UI loop
@@ -195,14 +234,18 @@ while True:
     look = read_look()
     slot_idx = cv2.getTrackbarPos('Slot', 'controls') - 1
     layout = LAYOUTS[cv2.getTrackbarPos('Layout', 'controls')]
+    prop_choice = cv2.getTrackbarPos('Prop', 'controls')
 
     if editing:
-        # the sliders belong to the selected slot; picking another slot shows its settings
+        # the sliders belong to the selected slot; picking another slot shows its settings.
+        # Props aren't on the sliders, so they come from the slot itself
+        look = replace(look, props=slots.current().look.props)
         slots.current().look = look
         if slot_idx != slots.selected:
             slots.selected = slot_idx
             show_look(slots.current().look)
             look = slots.current().look
+            selected_prop, drag_offset = None, None
         picture, rects = slots.compose(art, layout)
     else:
         slots.selected = slot_idx
@@ -245,6 +288,7 @@ while True:
         else:
             editing, camera_look = True, look
             show_look(slots.current().look)
+        selected_prop, drag_offset = None, None
     elif key == ord('a') and not editing:
         # add the camera picture (unedited, with the current settings) to the selected slot
         slots.put(slots.selected, img, look, tracker)
@@ -257,6 +301,21 @@ while True:
     elif key == ord('x') and editing:
         slots.clear(slots.selected)
         show_look(slots.current().look)
+        selected_prop, drag_offset = None, None
+    elif key == ord('i') and editing and art.props:
+        # add the prop chosen on the Prop slider to the middle of the selected photo
+        if slots.current().image is None:
+            message, message_until = 'Add a photo to this slot first', time.time() + 2
+        else:
+            size = 0.6 if art.prop_names[prop_choice].startswith('Cody') else 0.35
+            set_props(add_prop(slots.current().look.props, prop_choice, size))
+            selected_prop = len(slots.current().look.props) - 1
+    elif key == ord('d') and editing and selected_prop is not None:
+        set_props(remove_prop(slots.current().look.props, selected_prop))
+        selected_prop, drag_offset = None, None
+    elif key in (ord('+'), ord('='), ord('-')) and editing and selected_prop is not None:
+        factor = 1 / 1.1 if key == ord('-') else 1.1
+        set_props(resize_prop(slots.current().look.props, selected_prop, factor))
     elif key == ord(' ') and not editing:
         # start a photo strip
         photo_strip.start(time.time())
@@ -296,15 +355,65 @@ while True:
     elif key != -1 and chr(key & 0xFF) in PRESET_KEYS:
         cv2.setTrackbarPos('Preset', 'controls', min(PRESET_KEYS.index(chr(key & 0xFF)), len(PRESETS) - 1))
 
+    # mouse, in the editor: click a slot to select it; click a prop to select it (it comes
+    # to the front), drag it to move it, and use the wheel to resize it
+    events, mouse_events[:] = mouse_events[:], []
+    for event, sx, sy, flags in events:
+        if not (showing_editor and editing) or editor_view is None:
+            continue
+        lx, ly = screen_to_layout(sx, sy, editor_view)
+        slot = slots.current()
+        if event == cv2.EVENT_LBUTTONDOWN:
+            clicked = slots.slot_at(lx, ly, rects)
+            if clicked is not None and clicked != slots.selected:
+                # select that slot (the switch happens next frame); click again for its props
+                cv2.setTrackbarPos('Slot', 'controls', clicked + 1)
+                selected_prop, drag_offset = None, None
+                break
+            point = photo_point(slots.selected, lx, ly)
+            hit = None
+            if point is not None and slot.image is not None:
+                hit = prop_at(slot.look.props, art.props, *point, slot.image.shape[1], slot.image.shape[0])
+            if hit is None:
+                selected_prop, drag_offset = None, None
+            else:
+                set_props(bring_to_front(slot.look.props, hit))
+                selected_prop = len(slots.current().look.props) - 1
+                placed = slots.current().look.props[selected_prop]
+                drag_offset = (placed.x - point[0], placed.y - point[1])
+        elif event == cv2.EVENT_MOUSEMOVE and drag_offset is not None and flags & cv2.EVENT_FLAG_LBUTTON:
+            point = photo_point(slots.selected, lx, ly)
+            if point is not None and selected_prop is not None:
+                set_props(move_prop(slot.look.props, selected_prop, point[0] + drag_offset[0], point[1] + drag_offset[1]))
+        elif event == cv2.EVENT_LBUTTONUP:
+            drag_offset = None
+        elif event == cv2.EVENT_MOUSEWHEEL and selected_prop is not None:
+            # the wheel's direction is in the top bits of flags: positive = up (bigger)
+            factor = 1.1 if flags > 0 else 1 / 1.1
+            set_props(resize_prop(slot.look.props, selected_prop, factor))
+
     # anything drawn on `shown` is only on screen, never in saved photos
     # the label is the preset's name, plus the focus mode when one is on
     label = PRESETS[look.preset][0] + (f' + {FOCUS_MODES[look.focus]}' if look.focus else '')
     if showing_editor:
-        # messages show in the editor's title bar, in place of the key hints
+        # messages show in the editor's title bar, in place of the first line of hints
+        slot = slots.current()
+        prop_rect = None
+        if selected_prop is not None and selected_prop < len(slot.look.props) and slots.selected in slots.photo_rects:
+            # outline the selected prop: its box in the photo, scaled into the layout
+            placed = slot.look.props[selected_prop]
+            x, y, w, h = slots.photo_rects[slots.selected]
+            s = w / slot.image.shape[1]
+            cx, cy, pw, ph = prop_box(placed, art.props[placed.prop], slot.image.shape[1], slot.image.shape[0])
+            prop_rect = (x + (cx - pw / 2) * s, y + (cy - ph / 2) * s, pw * s, ph * s)
+            label += f'  [{art.prop_names[placed.prop]}]'
         title = f'Editing slot {slots.selected + 1} of {SLOT_COUNT} ({layout}): {label}'
-        hint = 'TAB next slot  L strip/grid  U upload  X clear  S save  E camera'
-        shown = editor_screen(picture, rects[slots.selected], title,
-                              message if time.time() < message_until else hint)
+        hints = ['TAB next slot  L strip/grid  U upload  X clear  S save  E camera',
+                 f'Props: I add "{art.prop_names[prop_choice]}"  drag to move  wheel or +/- size  D delete'
+                 if art.props else '']
+        if time.time() < message_until:
+            hints[0] = message
+        shown, editor_view = editor_screen(picture, rects[slots.selected], title, hints, prop_rect)
     else:
         shown = picture.copy()
         outlined_text(shown, label, (20, 40), 1.2, 2, 6)

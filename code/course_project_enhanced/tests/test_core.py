@@ -17,6 +17,8 @@ from booth import PhotoStrip                          # noqa: E402
 from filters import KERNELS, PRESETS                  # noqa: E402
 from look import Look, render                         # noqa: E402
 from masks import FOCUS_MODES, apply_focus, refine_mask   # noqa: E402
+from props import (MAX_SIZE, add_prop, bring_to_front, move_prop, prop_at,   # noqa: E402
+                   remove_prop, resize_prop)
 from overlays import fit_frame, paste_centered        # noqa: E402
 from slots import BORDER, Slots                       # noqa: E402
 from sources import MAX_IMAGE_H, MAX_IMAGE_W, load_image   # noqa: E402
@@ -209,6 +211,51 @@ class TestMasks(unittest.TestCase):
         img = test_photo()
         # no mask available (e.g. MediaPipe found nothing): focus is skipped, not a crash
         self.assertTrue(np.array_equal(render(img.copy(), Look(focus=1), art, person_mask=None), img))
+
+
+class TestProps(unittest.TestCase):
+    def setUp(self):
+        # one 100x200 prop: solid in the middle, see-through in the top-left corner
+        self.prop = np.full((200, 100, 4), 255, np.uint8)
+        self.prop[:40, :30, 3] = 0
+        self.images = [self.prop]
+
+    def test_add_move_resize_remove(self):
+        props = add_prop((), 0, size=0.5)
+        self.assertEqual((props[0].x, props[0].y, props[0].size), (0.5, 0.5, 0.5))
+        props = move_prop(props, 0, 1.4, -0.2)                       # dragged off the photo
+        self.assertEqual((props[0].x, props[0].y), (1.0, 0.0))       # centre kept on the photo
+        for _ in range(50):
+            props = resize_prop(props, 0, 1.1)
+        self.assertEqual(props[0].size, MAX_SIZE)                    # size has limits
+        self.assertEqual(remove_prop(props, 0), ())
+
+    def test_click_finds_the_top_prop_but_not_see_through_corners(self):
+        props = add_prop(add_prop((), 0), 0)                         # two props on top of each other
+        self.assertEqual(prop_at(props, self.images, 0.5, 0.5, 640, 480), 1)        # the top one
+        # the prop is 240 px tall, 120 wide, centred at (320, 240): its top-left corner is see-through
+        self.assertIsNone(prop_at(props, self.images, (262 / 640), (122 / 480), 640, 480))
+        self.assertIsNone(prop_at(props, self.images, 0.02, 0.02, 640, 480))      # nowhere near
+        front = bring_to_front(add_prop(props, 0, size=0.2), 0)
+        self.assertEqual([p.size for p in front], [0.5, 0.2, 0.5])
+
+    def test_render_draws_props_and_keeps_size(self):
+        art = load_art(APP_DIR / 'assets')
+        img = test_photo()
+        look = Look(props=add_prop((), 0))
+        out = render(img.copy(), look, art)
+        self.assertEqual(out.shape, img.shape)
+        self.assertFalse(np.array_equal(out, img))                   # the prop is there
+        self.assertTrue(np.array_equal(out[:20, :20], img[:20, :20]))   # and only near the middle
+
+    def test_slot_click_mapping(self):
+        slots = Slots()
+        slots.put(0, test_photo(), Look(), FakeTracker())
+        _, rects = slots.compose(load_art(APP_DIR / 'assets'), 'Grid')
+        self.assertEqual(slots.photo_rects[0], (BORDER, BORDER, 640, 480))
+        self.assertEqual(slots.slot_at(700, 100, rects), 1)          # top-right cell
+        self.assertEqual(slots.slot_at(100, 600, rects), 2)          # bottom-left cell
+        self.assertIsNone(slots.slot_at(5000, 5000, rects))
 
 
 class FakeTracker:

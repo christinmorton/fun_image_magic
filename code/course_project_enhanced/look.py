@@ -7,6 +7,7 @@ import cv2
 from filters import KERNELS, MOVES_PIXELS, PRESETS
 from masks import apply_focus, refine_mask
 from overlays import add_face_sticker, add_mascot, apply_overlay, swap_background
+from props import draw_props
 
 
 @dataclass
@@ -21,6 +22,7 @@ class Look:
     mascot: int = -1           # index into the Cody poses, -1 = off
     frame: int = -1            # index into the frames, -1 = off
     focus: int = 0             # index into masks.FOCUS_MODES, 0 = off
+    props: tuple = ()          # scene props placed in this photo (props.PlacedProp), last on top
 
     def needs_person_mask(self):
         return self.background >= 0 or self.focus > 0
@@ -63,6 +65,8 @@ def render(img, look, art, faces=(), person_mask=None):
         picture = add_face_sticker(picture, faces, *art.stickers[look.sticker])
     if look.mascot >= 0:
         picture = add_mascot(picture, art.mascots[look.mascot])
+    if look.props:
+        picture = draw_props(picture, look.props, art.props)
     if look.frame >= 0:
         picture = apply_overlay(picture, art.frames[look.frame])
     return picture
