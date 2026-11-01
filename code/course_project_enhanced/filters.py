@@ -7,8 +7,10 @@ import numpy as np
 # define convolution kernels
 identity_kernel = np.array([[0,0,0], [0,1,0], [0,0,0]])
 sharpen_kernel = np.array([[0,-1,0], [-1,5,-1], [0,-1,0]])
-gaussian_kernel1 = cv2.getGaussianKernel(3, 0)
-gaussian_kernel2 = cv2.getGaussianKernel(5, 0)
+# getGaussianKernel gives a single column (it would only blur up and down), so multiply
+# it by its own transpose to get a square kernel that blurs in every direction
+gaussian_kernel1 = cv2.getGaussianKernel(3, 0) @ cv2.getGaussianKernel(3, 0).T   # 3x3
+gaussian_kernel2 = cv2.getGaussianKernel(5, 0) @ cv2.getGaussianKernel(5, 0).T   # 5x5
 box_kernel = np.array([[1,1,1], [1,1,1], [1,1,1]], np.float32) / 9.0
 # (1 + 2 + 3 + 4 + 5) / 5 = 1 * 1/5 + 2 * 1/5 + 3 * 1/5 + 4 * 1/5 + 5 * 1/5
 emboss_kernel = np.array([[-2,-1,0], [-1,1,1], [0,1,2]])

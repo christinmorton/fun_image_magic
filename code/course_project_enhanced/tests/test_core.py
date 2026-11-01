@@ -37,6 +37,16 @@ class TestPresets(unittest.TestCase):
                     self.assertEqual(out.shape, img.shape)
                     self.assertEqual(out.dtype, np.uint8)
 
+    def test_gaussian_kernels_blur_sideways_too(self):
+        # a 1-pixel vertical white line must spread left and right
+        img = np.zeros((20, 20), np.uint8)
+        img[:, 10] = 255
+        for i in (2, 3):
+            with self.subTest(kernel=i):
+                self.assertEqual(KERNELS[i].shape[0], KERNELS[i].shape[1])      # square
+                self.assertAlmostEqual(float(KERNELS[i].sum()), 1.0, places=5)  # keeps brightness
+                self.assertGreater(cv2.filter2D(img, -1, KERNELS[i])[10, 9], 0)
+
     def test_every_kernel_keeps_size(self):
         img = test_photo()
         for i, kernel in enumerate(KERNELS):

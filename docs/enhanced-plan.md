@@ -38,7 +38,7 @@ booth (`docs/extended-app.md`). `course_project_extended` stays as it is. Branch
 
 ## 2. Bug fixes (one commit each)
 
-- [ ] Gaussian blurs only blur up and down: build proper 2D kernels
+- [x] Gaussian blurs only blur up and down: build proper 2D kernels
 - [ ] Contrast slider jumps in whole steps: steps of 0.1 (slider 0–30 divided by 10)
 - [x] Closing a window with the X doesn't exit: quit cleanly when either window closes
 - [x] Both colour and grey versions are processed every frame: process only the one on screen
