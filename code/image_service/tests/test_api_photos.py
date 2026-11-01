@@ -131,5 +131,31 @@ class TestCompose(PhotoTestCase):
         self.assertIn('slots[1]', bad.json()['detail'])
 
 
+class TestDocsExamples(PhotoTestCase):
+    def test_every_docs_example_works_and_names_the_file(self):
+        # the /docs page offers these ready-made bodies; each must produce an image
+        photo_id = self.upload().json()['photo_id']
+        schema = self.client.get('/openapi.json').json()
+        for path in ('/v1/render', '/v1/compose'):
+            examples = schema['paths'][path]['post']['requestBody']['content']['application/json']['examples']
+            self.assertGreaterEqual(len(examples), 2)
+            for name, example in examples.items():
+                with self.subTest(path=path, example=name):
+                    body = json_replace(example['value'], 'PASTE-YOUR-PHOTO-ID', photo_id)
+                    response = self.client.post(path, headers=AUTH, json=body)
+                    self.assertEqual(response.status_code, 200, response.text)
+                    self.assertTrue(response.headers['content-disposition'].startswith('inline; filename='))
+                    self.assertIsNotNone(decode(response))
+
+
+def json_replace(value, old, new):
+    # a copy of a JSON-like value with every string `old` replaced by `new`
+    if isinstance(value, dict):
+        return {k: json_replace(v, old, new) for k, v in value.items()}
+    if isinstance(value, list):
+        return [json_replace(v, old, new) for v in value]
+    return new if value == old else value
+
+
 if __name__ == '__main__':
     unittest.main()

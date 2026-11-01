@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, Body, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -124,15 +124,59 @@ class RenderRequest(ImageOptions):
 
 IMAGE_RESPONSES = {200: {'content': {'image/png': {}, 'image/jpeg': {}}, 'description': 'The finished image'}}
 
+def image_response(data, media_type, name):
+    # "inline" shows the image (in a browser or /docs); the file name is used when it's saved
+    extension = 'jpg' if media_type == 'image/jpeg' else 'png'
+    return Response(data, media_type=media_type,
+                    headers={'Content-Disposition': f'inline; filename="{name}.{extension}"'})
+
+# ready-made request bodies for the /docs page (its own example fills in every default, and
+# the smallest max_width, which renders an unchanged 64 px image)
+PHOTO = 'PASTE-YOUR-PHOTO-ID'
+RENDER_EXAMPLES = {
+    'full_look': {
+        'summary': 'A full look',
+        'description': 'Sunglasses, Vegas background, color pop, classic frame and a Cody prop',
+        'value': {'photo_id': PHOTO, 'look': {
+            'sticker': 0, 'background': 5, 'focus': 1, 'frame': 0,
+            'props': [{'prop': 5, 'x': 0.8, 'y': 0.6, 'size': 0.6}]}},
+    },
+    'preset_and_frame': {
+        'summary': 'A preset and a frame, as JPEG',
+        'value': {'photo_id': PHOTO, 'look': {'preset': 4, 'frame': 2}, 'format': 'jpeg', 'quality': 90},
+    },
+    'plain': {
+        'summary': 'Just the photo (nothing changed)',
+        'value': {'photo_id': PHOTO},
+    },
+}
+COMPOSE_EXAMPLES = {
+    'grid_of_looks': {
+        'summary': 'A 2x2 grid: one photo, four looks',
+        'value': {'layout': 'grid', 'slots': [
+            {'photo_id': PHOTO, 'look': {'preset': 1, 'frame': 1}},
+            {'photo_id': PHOTO, 'look': {'preset': 4, 'frame': 2}},
+            {'photo_id': PHOTO, 'look': {'preset': 6, 'frame': 3}},
+            {'photo_id': PHOTO, 'look': {'preset': 11, 'frame': 4}}]},
+    },
+    'strip': {
+        'summary': 'A photo strip, as JPEG',
+        'value': {'layout': 'strip', 'format': 'jpeg', 'slots': [
+            {'photo_id': PHOTO, 'look': {'frame': 0}},
+            {'photo_id': PHOTO, 'look': {'preset': 2, 'frame': 0}},
+            {'photo_id': PHOTO, 'look': {'preset': 7, 'frame': 0}}]},
+    },
+}
+
 @v1.post('/render', tags=['images'], response_class=Response, responses=IMAGE_RESPONSES)
-def render(body: RenderRequest, request: Request):
+def render(request: Request, body: RenderRequest = Body(openapi_examples=RENDER_EXAMPLES)):
     # one photo + one look -> the finished image (runs in a worker thread: it's a plain def)
     photo = stored_photo(request, body.photo_id)
     art = request.app.state.art
     look = to_core_look(body.look, art)
     picture = render_look(photo.image.copy(), look, art, photo.faces, photo.person_mask)
     data, media_type = encode_image(picture, body)
-    return Response(data, media_type=media_type)
+    return image_response(data, media_type, 'render')
 
 
 class SlotIn(BaseModel):
@@ -145,7 +189,7 @@ class ComposeRequest(ImageOptions):
     slots: list[SlotIn] = Field(min_length=1, max_length=SLOT_COUNT, description=f'Up to {SLOT_COUNT}, in order')
 
 @v1.post('/compose', tags=['images'], response_class=Response, responses=IMAGE_RESPONSES)
-def compose(body: ComposeRequest, request: Request):
+def compose(request: Request, body: ComposeRequest = Body(openapi_examples=COMPOSE_EXAMPLES)):
     # up to four photos, each with its own look -> one strip (stacked) or 2x2 grid, like the
     # desktop editor saves it: empty slots are left out of a strip and white in a grid
     art = request.app.state.art
@@ -163,6 +207,6 @@ def compose(body: ComposeRequest, request: Request):
         raise HTTPException(422, 'At least one slot needs a photo_id')
     picture, _ = slots.compose(art, body.layout.capitalize(), for_saving=True)
     data, media_type = encode_image(picture, body)
-    return Response(data, media_type=media_type)
+    return image_response(data, media_type, body.layout)
 
 app.include_router(v1)
