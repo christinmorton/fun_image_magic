@@ -171,6 +171,7 @@ help_lines = ['Click the video, then press:',
               'A add picture to slot   E editor on/off',
               'TAB next slot   L strip/grid   X clear slot',
               'Click a slot to select it',
+              'R twice: clear everything and start over',
               'Props: I add (Prop slider)   D delete',
               'drag to move   wheel or +/- to resize']
 help_panel = np.full((22 + 32 * len(help_lines), 460, 3), 40, np.uint8)
@@ -207,6 +208,7 @@ print('Keys (click the video first): 1-9, 0 presets | [ ] prev/next preset | f f
 print('      space photo strip | s save | u upload an image | w webcam | q quit')
 print('      four-slot editor: a add picture to slot | e editor on/off | tab next slot | l strip/grid | x clear slot')
 print('      props (editor): i add | d delete | + / - resize | mouse: click to select, drag to move, wheel to resize')
+print('      r twice: clear everything and start over')
 
 
 photo_strip = PhotoStrip()
@@ -215,6 +217,7 @@ editing = False            # False = camera, True = four-slot editor
 camera_look = None         # the camera's settings, kept while the sliders edit a slot
 message, message_until = '', 0
 last_filled = None         # the slot most recently given a photo (the editor opens there)
+reset_armed_until = 0      # R must be pressed twice within a few seconds to start over
 selected_prop = None       # index into the selected slot's props, or None
 drag_offset = None         # while dragging a prop: (dx, dy) from the grab point to its centre
 editor_view = None         # (scale, left, top) of the last editor screen, for the mouse
@@ -285,6 +288,25 @@ while True:
         else:
             message = 'Nothing to save: all slots are empty'
         message_until = time.time() + 2
+    elif key == ord('r') and time.time() >= reset_armed_until:
+        # start over, step 1: ask for a second press, so one stray key can't wipe everything
+        reset_armed_until = time.time() + 3
+        message, message_until = 'Press R again to clear everything and start over', reset_armed_until
+    elif key == ord('r'):
+        # start over, step 2: empty the slots, cancel any photo strip, put every slider back
+        # to its starting value and go back to the camera (saved files in output/ are kept)
+        slots = Slots()
+        photo_strip = PhotoStrip()
+        editing, camera_look, last_filled = False, None, None
+        selected_prop, drag_offset = None, None
+        show_look(Look(frame=0 if art.frames else -1))
+        cv2.setTrackbarPos('Slot', 'controls', 1)
+        cv2.setTrackbarPos('Layout', 'controls', 0)
+        cv2.setTrackbarPos('Prop', 'controls', 0)
+        if source.cap is None:
+            source.open_webcam()     # back to the webcam if there is one (else the photo stays)
+        reset_armed_until = 0
+        message, message_until = 'Started over', time.time() + 2
     elif key == ord('e'):
         # switch between the camera and the editor; each keeps its own slider settings
         if editing:
@@ -421,7 +443,7 @@ while True:
             prop_rect = (x + (cx - pw / 2) * s, y + (cy - ph / 2) * s, pw * s, ph * s)
             label += f'  [{art.prop_names[placed.prop]}]'
         title = f'Editing slot {slots.selected + 1} of {SLOT_COUNT} ({layout}): {label}'
-        hints = ['TAB next slot  L strip/grid  U upload  X clear  S save  E camera',
+        hints = ['TAB next slot  L strip/grid  U upload  X clear  S save  E camera  R reset',
                  f'Props: I add "{art.prop_names[prop_choice]}"  drag to move  wheel or +/- size  D delete'
                  if art.props else '']
         shown, editor_view = editor_screen(picture, rects[slots.selected], title, hints, prop_rect,
@@ -429,7 +451,7 @@ while True:
     else:
         shown = picture.copy()
         outlined_text(shown, label, (20, 40), 1.2, 2, 6)
-        outlined_text(shown, 'SPACE strip  A add to slot  E editor  S save  U upload  W webcam  Q quit', (20, 70), 0.5, 1, 4)
+        outlined_text(shown, 'SPACE strip  A add to slot  E editor  S save  U upload  W webcam  R reset  Q quit', (20, 70), 0.5, 1, 4)
 
         # photo strip: count down, take a shot, repeat, then save the strip and open
         # it in the editor, so each photo can be edited on its own

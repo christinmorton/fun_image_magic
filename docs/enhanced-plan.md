@@ -121,6 +121,13 @@ by hand. Face stickers stay as they are.
 - Note: the selection outline can be one frame (about 1/30 s) ahead of the picture while
   dragging, because mouse events arrive after the frame is drawn
 
+## Start over (added 2026-11-01)
+
+- [x] `R` twice within 3 seconds clears everything without quitting: all four slots (photos,
+      looks, props), any photo strip in progress, every slider back to its starting value,
+      back to camera mode (and to the webcam if a photo was uploaded). Files already saved in
+      `output/` are kept. One `R` only asks, so a stray key can't wipe a session.
+
 ## 7. AI image generation (cloud APIs first)
 
 See `docs/ai-image-generation-plan.md`: AI styles, AI backgrounds (using the step 5 mask),
