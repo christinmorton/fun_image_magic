@@ -74,6 +74,14 @@ class TestRender(unittest.TestCase):
             with self.subTest(grayscale=grayscale):
                 self.assertTrue(np.array_equal(render(img.copy(), look, art), expected))
 
+    def test_contrast_has_fine_steps(self):
+        # 1.1 and 1.2 (slider 11 and 12) must give different, gradually stronger pictures
+        img = test_photo()
+        art = load_art(APP_DIR / 'assets')
+        spread = [float(render(img.copy(), Look(contrast=c), art).std()) for c in (1.0, 1.1, 1.2)]
+        self.assertLess(spread[0], spread[1])
+        self.assertLess(spread[1], spread[2])
+
     def test_frame_and_mascot_keep_size(self):
         img = test_photo(960, 639)
         art = load_art(APP_DIR / 'assets')

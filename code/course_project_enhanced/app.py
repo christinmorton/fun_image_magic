@@ -50,7 +50,7 @@ def dummy(value):
 def read_look():
     # the current settings, read from the trackbars
     return Look(
-        contrast=cv2.getTrackbarPos('Contrast', 'controls'),
+        contrast=cv2.getTrackbarPos('Contrast', 'controls') / 10,        # 10 = 1.0, no change
         brightness=cv2.getTrackbarPos('Brightness', 'controls'),
         kernel=cv2.getTrackbarPos('Filter', 'controls'),
         grayscale=cv2.getTrackbarPos('Greyscale', 'controls'),
@@ -118,7 +118,7 @@ cv2.moveWindow('app', 10, 10)
 cv2.moveWindow('controls', source.width() + 40, 10)
 
 # arguments: TrackbarName, WindowName, value (initial value), count (max value), contrast, onChange event handler
-cv2.createTrackbar('Contrast', 'controls', 1, 100, dummy)
+cv2.createTrackbar('Contrast', 'controls', 10, 30, dummy)   # trackbars only do whole numbers, so 0-30 means 0.0-3.0
 cv2.createTrackbar('Brightness', 'controls', 50, 100, dummy)
 cv2.createTrackbar('Filter', 'controls', 0, len(KERNELS) - 1, dummy)
 cv2.createTrackbar('Greyscale', 'controls', 0, 1, dummy) # this becomes a switch because of 0 and 1. Boolean type

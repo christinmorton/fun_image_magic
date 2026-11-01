@@ -10,7 +10,7 @@ from overlays import add_face_sticker, add_mascot, apply_overlay, swap_backgroun
 
 @dataclass
 class Look:
-    contrast: int = 1          # the course sliders
+    contrast: float = 1.0      # the course sliders; 1.0 = no change
     brightness: int = 50       # 50 = no change
     kernel: int = 0            # index into KERNELS
     grayscale: int = 0         # 0 = colour, 1 = grey
