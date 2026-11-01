@@ -24,7 +24,7 @@ the four-slot editor, start-over reset, and an AI trial with Google Nano Banana 
 
 ## Architecture: three layers
 
-```
+```text
 image_service/
 ├── core/        the engine: no web code, no windows
 │   ├── filters.py  masks.py  overlays.py  props.py  look.py  slots.py
