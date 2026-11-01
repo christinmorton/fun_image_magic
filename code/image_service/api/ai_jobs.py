@@ -103,6 +103,13 @@ class AiJobs:
             self._purge()
             return self._jobs.get(job_id)
 
+    def clear(self):
+        # forget every job (jobs still running finish, but their results are not kept)
+        with self._lock:
+            count = len(self._jobs)
+            self._jobs.clear()
+            return count
+
     def shutdown(self):
         self._executor.shutdown(wait=False, cancel_futures=True)
 

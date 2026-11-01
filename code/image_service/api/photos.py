@@ -74,6 +74,13 @@ class PhotoStore:
         with self._lock:
             return self._photos.pop(photo_id, None) is not None
 
+    def clear(self):
+        # delete every stored photo now; returns how many there were
+        with self._lock:
+            count = len(self._photos)
+            self._photos.clear()
+            return count
+
     def _purge(self):
         now = time.time()
         for photo_id in [pid for pid, photo in self._photos.items() if photo.expires_at <= now]:

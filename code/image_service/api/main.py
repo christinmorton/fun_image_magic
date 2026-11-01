@@ -18,10 +18,12 @@ from core.tracking import Tracker
 
 from .ai_jobs import AiJobs
 from .auth import require_token
+from .limits import RateLimiter
 from .catalog import ART_KINDS, Catalog, art_images, build_catalog, thumbnail_png
 from .looks import ImageOptions, LookIn, encode_image, to_core_look
 from .photos import MAX_UPLOAD_BYTES, PhotoStore, decode_upload
-from .settings import SERVICE_VERSION, ai_configured, ai_daily_limit, photo_ttl_seconds, service_token
+from .settings import (SERVICE_VERSION, ai_configured, ai_daily_limit, photo_ttl_seconds,
+                       rate_limit_per_minute, service_token)
 
 
 @asynccontextmanager
@@ -34,6 +36,7 @@ async def lifespan(app):
     app.state.photos = PhotoStore(app.state.tracker, photo_ttl_seconds())
     # AI runs only when a Gemini key is configured (creating the client makes no request)
     generator = GeminiGenerator() if ai_configured() else None
+    app.state.limiter = RateLimiter(rate_limit_per_minute())
     app.state.ai_jobs = AiJobs(app.state.photos, generator, ai_daily_limit(), service_token, photo_ttl_seconds())
     yield
     app.state.ai_jobs.shutdown()
@@ -52,6 +55,13 @@ def photo_info(photo):
     return PhotoInfo(photo_id=photo.photo_id, width=photo.image.shape[1], height=photo.image.shape[0],
                      faces=len(photo.faces), person_found=photo.person_found(),
                      expires_at=datetime.fromtimestamp(photo.expires_at, timezone.utc))
+
+def rate_limited(request: Request):
+    # for the routes that do real work: refuse with 429 when a client sends too many
+    wait = request.app.state.limiter.wait_seconds(request.client.host if request.client else 'unknown')
+    if wait:
+        raise HTTPException(429, f'Too many requests; try again in {wait} s (RATE_LIMIT_PER_MINUTE in .env)',
+                            headers={'Retry-After': str(wait)})
 
 def stored_photo(request, photo_id):
     photo = request.app.state.photos.get(photo_id)
@@ -97,7 +107,7 @@ def thumbnail(kind: str, index: int, request: Request):
                     headers={'Cache-Control': 'public, max-age=86400'})
 
 
-@v1.post('/photos', status_code=201, response_model=PhotoInfo, tags=['photos'])
+@v1.post('/photos', status_code=201, response_model=PhotoInfo, tags=['photos'], dependencies=[Depends(rate_limited)])
 async def upload_photo(request: Request, image: UploadFile = File(..., description='A JPEG, PNG, BMP or WebP photo')):
     # upload a photo once: it is analysed (faces, person) and kept for a while, so it can be
     # rendered with many looks without uploading it again
@@ -115,6 +125,13 @@ async def upload_photo(request: Request, image: UploadFile = File(..., descripti
 @v1.get('/photos/{photo_id}', response_model=PhotoInfo, tags=['photos'])
 def get_photo(photo_id: str, request: Request):
     return photo_info(stored_photo(request, photo_id))
+
+@v1.delete('/photos', tags=['photos'])
+def delete_all_photos(request: Request):
+    # delete every stored photo and AI job right now, e.g. at the end of an event (privacy).
+    # Photos only ever live in memory, so after this nothing of them is left on the service.
+    return {'deleted_photos': request.app.state.photos.clear(),
+            'deleted_ai_jobs': request.app.state.ai_jobs.clear()}
 
 @v1.delete('/photos/{photo_id}', status_code=204, tags=['photos'])
 def delete_photo(photo_id: str, request: Request):
@@ -174,7 +191,8 @@ COMPOSE_EXAMPLES = {
     },
 }
 
-@v1.post('/render', tags=['images'], response_class=Response, responses=IMAGE_RESPONSES)
+@v1.post('/render', tags=['images'], response_class=Response, responses=IMAGE_RESPONSES,
+         dependencies=[Depends(rate_limited)])
 def render(request: Request, body: RenderRequest = Body(openapi_examples=RENDER_EXAMPLES)):
     # one photo + one look -> the finished image (runs in a worker thread: it's a plain def)
     photo = stored_photo(request, body.photo_id)
@@ -194,7 +212,8 @@ class ComposeRequest(ImageOptions):
     layout: Literal['strip', 'grid'] = 'strip'
     slots: list[SlotIn] = Field(min_length=1, max_length=SLOT_COUNT, description=f'Up to {SLOT_COUNT}, in order')
 
-@v1.post('/compose', tags=['images'], response_class=Response, responses=IMAGE_RESPONSES)
+@v1.post('/compose', tags=['images'], response_class=Response, responses=IMAGE_RESPONSES,
+          dependencies=[Depends(rate_limited)])
 def compose(request: Request, body: ComposeRequest = Body(openapi_examples=COMPOSE_EXAMPLES)):
     # up to four photos, each with its own look -> one strip (stacked) or 2x2 grid, like the
     # desktop editor saves it: empty slots are left out of a strip and white in a grid
@@ -247,7 +266,7 @@ def ai_jobs(request):
         raise HTTPException(503, 'AI is not configured: set GEMINI_API_KEY in the image service .env')
     return jobs
 
-@v1.post('/ai/jobs', status_code=202, response_model=AiJobInfo, tags=['ai'])
+@v1.post('/ai/jobs', status_code=202, response_model=AiJobInfo, tags=['ai'], dependencies=[Depends(rate_limited)])
 def start_ai_job(body: AiJobRequest, request: Request):
     # start an AI preset on a photo; it runs in the background (10-30 s). Poll
     # GET /v1/ai/jobs/{job_id}, or give a callback_url to be told when it's done.

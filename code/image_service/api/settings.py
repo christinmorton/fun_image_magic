@@ -24,6 +24,14 @@ def ai_daily_limit():
     except ValueError:
         return 100
 
+def rate_limit_per_minute():
+    # uploads + renders + layouts + AI jobs allowed per minute per client
+    # (RATE_LIMIT_PER_MINUTE in .env; default 120; 0 = no limit)
+    try:
+        return max(0, int(os.environ.get('RATE_LIMIT_PER_MINUTE', 120)))
+    except ValueError:
+        return 120
+
 def ai_configured():
     return bool(os.environ.get('GEMINI_API_KEY'))
 
