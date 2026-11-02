@@ -12,16 +12,18 @@ STICKERS = [
     ('sunglasses.png', 1.9, 0.0),
     ('star_glasses.png', 1.9, 0.0),
     ('party_hat.png', 1.7, 1.65),
-    ('coyote_ears.png', 2.2, 1.65),
+    ('cat_ears.png', 2.2, 1.65),
     ('crown.png', 1.6, 1.45),
     ('grad_cap.png', 1.9, 1.1),
     ('mustache.png', 1.1, -0.62),
 ]
 
+MASCOT_PROP_PREFIX = 'mascot '   # mascot poses are props too, named e.g. "mascot waving"
+
 
 @dataclass
 class Art:
-    mascots: list = field(default_factory=list)       # Cody poses, BGRA images trimmed to Cody
+    mascots: list = field(default_factory=list)       # mascot poses, BGRA images trimmed to the character
     frames: list = field(default_factory=list)        # BGRA images
     backgrounds: list = field(default_factory=list)   # BGR images
     stickers: list = field(default_factory=list)      # (BGRA image, width_factor, lift_factor)
@@ -36,7 +38,7 @@ class Art:
 
 def display_name(path):
     # a file name made readable: drop a leading "1_" ordering number and the underscores,
-    # e.g. "1_go_csn_sign.png" -> "go csn sign", "vegas_night.jpg" -> "vegas night"
+    # e.g. "1_cheer_sign.png" -> "cheer sign", "vegas_night.jpg" -> "vegas night"
     return re.sub(r'^\d+_', '', path.stem).replace('_', ' ')
 
 def trim_transparent(img):
@@ -62,12 +64,12 @@ def load_art(assets_dir):
         if png is not None:
             art.stickers.append((png, width_factor, lift_factor))
             art.sticker_names.append(display_name(path))
-    # scene props: everything in assets/props/, then the Cody poses (so Cody can be placed
-    # anywhere too), e.g. "go csn sign", "Cody basketball"
+    # scene props: everything in assets/props/, then the mascot poses (so the mascot can be
+    # placed anywhere too), e.g. "cheer sign", "mascot waving"
     for path in sorted((assets_dir / 'props').glob('*.png')):
         art.props.append(trim_transparent(cv2.imread(str(path), cv2.IMREAD_UNCHANGED)))
         art.prop_names.append(display_name(path))
     for name, pose in zip(art.mascot_names, art.mascots):
         art.props.append(pose)
-        art.prop_names.append('Cody ' + name)
+        art.prop_names.append(MASCOT_PROP_PREFIX + name)
     return art

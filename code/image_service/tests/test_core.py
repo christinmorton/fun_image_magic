@@ -138,7 +138,7 @@ class TestAssets(unittest.TestCase):
     def test_all_art_loads(self):
         art = load_art(ASSETS_DIR)
         self.assertEqual(len(art.mascots), 3)
-        for pose in art.mascots:      # trimmed: Cody touches every edge of his image
+        for pose in art.mascots:      # trimmed: the mascot touches every edge of its image
             alpha = pose[..., 3] >= 16
             self.assertTrue(alpha[0].any() and alpha[-1].any() and alpha[:, 0].any() and alpha[:, -1].any())
         self.assertEqual(len(art.stickers), len(STICKERS))
@@ -154,8 +154,9 @@ class TestAssets(unittest.TestCase):
             self.assertEqual(len(items), len(names))
             for name in names:
                 self.assertTrue(name and '_' not in name and not name[0].isdigit(), name)
-        self.assertIn('go csn', art.background_names)       # only a leading number is dropped
-        self.assertEqual(art.prop_names[0], 'go csn sign')
+        self.assertIn('vegas night', art.background_names)   # only a leading number is dropped
+        self.assertEqual(art.prop_names[0], 'cheer sign')
+        self.assertEqual(art.prop_names[-1], 'mascot peekaboo')
         self.assertEqual(len(KERNEL_NAMES), len(KERNELS))
 
     def test_trim_removes_padding(self):

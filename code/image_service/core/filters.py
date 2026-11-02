@@ -3,6 +3,8 @@
 import cv2
 import numpy as np
 
+from .brand import ACCENT, PRIMARY
+
 
 # define convolution kernels
 identity_kernel = np.array([[0,0,0], [0,1,0], [0,0,0]])
@@ -19,10 +21,6 @@ edge_kernel = np.array([[-1,-1,-1], [-1,8,-1], [-1,-1,-1]])
 KERNELS = [identity_kernel, sharpen_kernel, gaussian_kernel1, gaussian_kernel2, box_kernel, emboss_kernel, edge_kernel]
 KERNEL_NAMES = ['None', 'Sharpen', 'Blur (light)', 'Blur (strong)', 'Box blur', 'Emboss', 'Edges']
 
-
-# school colours in BGR order (placeholder: CSN blue #004990 and gold #FFCF01)
-SCHOOL_DARK = (144, 73, 0)
-SCHOOL_LIGHT = (1, 207, 255)
 
 # sepia colour matrix, written for OpenCV's BGR channel order
 SEPIA = np.array([[0.131, 0.534, 0.272],
@@ -73,7 +71,8 @@ def duotone(img, dark, light):
     return (np.array(dark) * (1 - t) + np.array(light) * t).astype(np.uint8)
 
 def school_colors(img):
-    return duotone(img, SCHOOL_DARK, SCHOOL_LIGHT)
+    # the brand's main colour in the dark areas, its accent in the light ones (core/brand.py)
+    return duotone(img, PRIMARY, ACCENT)
 
 def neon(img):
     # glowing edges on black, coloured by a rainbow colour map
@@ -146,7 +145,7 @@ def mirror(img):
     return out
 
 def desert_sunset(img):
-    return duotone(img, (138, 47, 49), (60, 160, 255))   # CSN purple #312F8A to sunset orange
+    return duotone(img, (138, 47, 49), (60, 160, 255))   # deep purple #312F8A to sunset orange
 
 # presets that move parts of the picture around: face stickers go on before these, so
 # they get copied / mirrored along with the face instead of floating where the face was

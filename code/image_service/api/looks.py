@@ -29,7 +29,7 @@ class LookIn(BaseModel):
     preset: int = Field(0, ge=0, lt=len(PRESETS), description='Catalog "presets" index')
     sticker: int = Field(-1, ge=-1, description='Catalog "stickers" index, -1 = off')
     background: int = Field(-1, ge=-1, description='Catalog "backgrounds" index, -1 = off')
-    mascot: int = Field(-1, ge=-1, description='Catalog "mascots" index (Cody poses), -1 = off')
+    mascot: int = Field(-1, ge=-1, description='Catalog "mascots" index (mascot poses), -1 = off')
     frame: int = Field(-1, ge=-1, description='Catalog "frames" index, -1 = off')
     focus: int = Field(0, ge=0, lt=len(FOCUS_MODES), description='Catalog "focus_modes" index, 0 = off')
     props: list[PropIn] = Field(default_factory=list, max_length=20, description='Last one is on top')

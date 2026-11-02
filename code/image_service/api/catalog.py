@@ -33,7 +33,7 @@ class Catalog(BaseModel):
     stickers: list[CatalogItem]        # look "sticker"; -1 = off
     backgrounds: list[CatalogItem]     # look "background"; -1 = off
     frames: list[CatalogItem]          # look "frame"; -1 = off
-    mascots: list[CatalogItem]         # look "mascot" (Cody poses); -1 = off
+    mascots: list[CatalogItem]         # look "mascot" (mascot poses); -1 = off
     props: list[CatalogItem]           # "prop" inside each entry of look "props"
     ai_presets: list[AiPresetItem]     # for POST /v1/ai/jobs
     off: int = -1                      # the value that switches a sticker, background, frame or mascot off

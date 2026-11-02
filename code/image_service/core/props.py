@@ -1,4 +1,4 @@
-# props: scene props - plain transparent PNGs (signs, a trophy, Cody poses...) that are
+# props: scene props - plain transparent PNGs (signs, a trophy, mascot poses...) that are
 # placed in a photo and moved by hand in the editor. Unlike face stickers they don't
 # follow anyone; each slot's look keeps a list of where its props are.
 from dataclasses import dataclass, replace

@@ -19,7 +19,7 @@ class Look:
     preset: int = 0            # index into PRESETS
     sticker: int = -1          # index into the stickers, -1 = off
     background: int = -1       # index into the backgrounds, -1 = off
-    mascot: int = -1           # index into the Cody poses, -1 = off
+    mascot: int = -1           # index into the mascot poses, -1 = off
     frame: int = -1            # index into the frames, -1 = off
     focus: int = 0             # index into masks.FOCUS_MODES, 0 = off
     props: tuple = ()          # scene props placed in this photo (props.PlacedProp), last on top

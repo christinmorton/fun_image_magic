@@ -1,5 +1,5 @@
 # overlays: things laid over or behind the photo - branded frames, face stickers,
-# Cody the mascot, and the background swap. Frames, stickers and Cody are BGRA images
+# the mascot, and the background swap. Frames, stickers and the mascot are BGRA images
 # (the 4th channel is transparency).
 import cv2
 import numpy as np

@@ -39,16 +39,15 @@ AI_PRESETS = [
     AiPreset('oil_painting', 'Oil painting', 'style',
              'Restyle this photo as a classic oil painting with visible brush strokes. ' + KEEP_LIKENESS),
     AiPreset('superhero', 'Superhero', 'style',
-             'Turn the person in this photo into a superhero in a blue and gold costume, in a dramatic '
+             'Turn the person in this photo into a superhero in a bold, colourful costume, in a dramatic '
              'comic-movie poster style. ' + KEEP_LIKENESS),
     AiPreset('vegas_neon', 'Vegas neon', 'style',
              'Restyle this photo with glowing Las Vegas neon colours and lighting, like a neon sign. ' + KEEP_LIKENESS),
     AiPreset('vegas_strip', 'Las Vegas Strip at night', 'background',
              'Replace only the background of this photo with the Las Vegas Strip at night, with bright '
              'neon signs. ' + KEEP_PERSON),
-    AiPreset('csn_court', 'Basketball court', 'background',
-             'Replace only the background of this photo with an indoor college basketball court with '
-             'blue and gold colours. ' + KEEP_PERSON),
+    AiPreset('basketball_court', 'Basketball court', 'background',
+             'Replace only the background of this photo with an indoor basketball court. ' + KEEP_PERSON),
     AiPreset('outer_space', 'Outer space', 'background',
              'Replace only the background of this photo with outer space, with stars, a colourful '
              'nebula and a planet. ' + KEEP_PERSON),

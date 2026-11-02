@@ -4,5 +4,5 @@
 from pathlib import Path
 
 CORE_DIR = Path(__file__).resolve().parent
-ASSETS_DIR = CORE_DIR / 'assets'      # frames, stickers, backgrounds, Cody poses, props
+ASSETS_DIR = CORE_DIR / 'assets'      # frames, stickers, backgrounds, mascot poses, props
 MODELS_DIR = CORE_DIR / 'models'      # MediaPipe face landmarker and person segmenter

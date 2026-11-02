@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# CSN photo booth (desktop version): the windows, sliders, keys and main loop.
+# Photo booth (desktop version): the windows, sliders, keys and main loop.
 # Run from the image_service folder:  .\.venv\Scripts\python.exe desktop\app.py
 # The picture work lives in core/ (shared with the web API):
 #   core/tracking.py       MediaPipe face and person detection
 #   core/look.py           the settings for a picture, and render() which applies them
 #   core/filters.py        kernels and presets
-#   core/overlays.py       frames, stickers, Cody, background swap
+#   core/overlays.py       frames, stickers, mascot, background swap
 #   core/slots.py          the four-slot editor (four photos, each with its own look)
 #   core/asset_library.py  loads the art in core/assets/
 # and the desktop-only parts live next to this file:
@@ -28,7 +28,7 @@ if str(SERVICE_DIR) not in sys.path:
     sys.path.insert(0, str(SERVICE_DIR))
 
 from core import ASSETS_DIR, MODELS_DIR                                   # noqa: E402
-from core.asset_library import load_art                                   # noqa: E402
+from core.asset_library import MASCOT_PROP_PREFIX, load_art               # noqa: E402
 from core.filters import KERNELS, PRESETS                                 # noqa: E402
 from core.look import Look, render                                        # noqa: E402
 from core.masks import FOCUS_MODES                                        # noqa: E402
@@ -73,7 +73,7 @@ def read_look():
         preset=cv2.getTrackbarPos('Preset', 'controls'),
         sticker=cv2.getTrackbarPos('Sticker', 'controls') - 1,          # -1 = off
         background=cv2.getTrackbarPos('Background', 'controls') - 1,    # -1 = off
-        mascot=cv2.getTrackbarPos('Cody', 'controls') - 1,              # -1 = off
+        mascot=cv2.getTrackbarPos('Mascot', 'controls') - 1,            # -1 = off
         frame=cv2.getTrackbarPos('Frame', 'controls') - 1,              # -1 = off
         focus=cv2.getTrackbarPos('Focus', 'controls'),                  # 0 = off
     )
@@ -87,7 +87,7 @@ def show_look(look):
     cv2.setTrackbarPos('Preset', 'controls', look.preset)
     cv2.setTrackbarPos('Sticker', 'controls', look.sticker + 1)
     cv2.setTrackbarPos('Background', 'controls', look.background + 1)
-    cv2.setTrackbarPos('Cody', 'controls', look.mascot + 1)
+    cv2.setTrackbarPos('Mascot', 'controls', look.mascot + 1)
     cv2.setTrackbarPos('Frame', 'controls', look.frame + 1)
     cv2.setTrackbarPos('Focus', 'controls', look.focus)
 
@@ -115,7 +115,7 @@ def editor_screen(layout_img, selected_rect, title, hints, prop_rect=None, messa
     for i, hint in enumerate(hints):
         cv2.putText(screen, hint, (16, 64 + 26 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (200, 200, 200), 1, cv2.LINE_AA)
     if message:
-        # a short message replaces the first hint line, in CSN gold so it stands out
+        # a short message replaces the first hint line, in gold so it stands out
         screen[46:72] = 40
         cv2.putText(screen, message, (16, 66), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (1, 207, 255), 2, cv2.LINE_AA)
     return screen, (scale, left, EDITOR_BAR_H)
@@ -171,7 +171,7 @@ cv2.setMouseCallback('app', on_mouse)
 help_lines = ['Click the video, then press:',
               '1-9, 0 preset   [ ] previous/next preset',
               'F sticker   B background   O frame   P focus',
-              'M Cody (poses)   S save   Q quit',
+              'M mascot (poses)   S save   Q quit',
               'SPACE photo strip (3-2-1 countdown)',
               'U upload an image   W webcam',
               '- four-slot editor -',
@@ -201,7 +201,7 @@ cv2.createTrackbar('Greyscale', 'controls', 0, 1, dummy) # this becomes a switch
 cv2.createTrackbar('Preset', 'controls', 0, len(PRESETS) - 1, dummy)
 cv2.createTrackbar('Sticker', 'controls', 0, len(art.stickers), dummy)         # 0 = off
 cv2.createTrackbar('Background', 'controls', 0, len(art.backgrounds), dummy)   # 0 = off
-cv2.createTrackbar('Cody', 'controls', 0, len(art.mascots), dummy)            # 0 = off, then each pose
+cv2.createTrackbar('Mascot', 'controls', 0, len(art.mascots), dummy)          # 0 = off, then each pose
 cv2.createTrackbar('Frame', 'controls', 1 if art.frames else 0, len(art.frames), dummy)   # 0 = off
 cv2.createTrackbar('Focus', 'controls', 0, len(FOCUS_MODES) - 1, dummy)   # 0 = off, color pop, portrait blur, mask preview
 
@@ -211,7 +211,7 @@ cv2.setTrackbarMin('Slot', 'controls', 1)
 cv2.createTrackbar('Layout', 'controls', 0, len(LAYOUTS) - 1, dummy)          # 0 = strip, 1 = grid
 cv2.createTrackbar('Prop', 'controls', 0, max(len(art.props) - 1, 0), dummy)  # which prop I adds
 
-print('Keys (click the video first): 1-9, 0 presets | [ ] prev/next preset | f face sticker | b background | m Cody poses | o frame | p focus')
+print('Keys (click the video first): 1-9, 0 presets | [ ] prev/next preset | f face sticker | b background | m mascot poses | o frame | p focus')
 print('      space photo strip | s save | u upload an image | w webcam | q quit')
 print('      four-slot editor: a add picture to slot | e editor on/off | tab next slot | l strip/grid | x clear slot')
 print('      props (editor): i add | d delete | + / - resize | mouse: click to select, drag to move, wheel to resize')
@@ -348,7 +348,7 @@ while True:
         if slots.current().image is None:
             message, message_until = 'Add a photo to this slot first', time.time() + 2
         else:
-            size = 0.6 if art.prop_names[prop_choice].startswith('Cody') else 0.35
+            size = 0.6 if art.prop_names[prop_choice].startswith(MASCOT_PROP_PREFIX) else 0.35
             set_props(add_prop(slots.current().look.props, prop_choice, size))
             selected_prop = len(slots.current().look.props) - 1
     elif key == ord('d') and editing and selected_prop is not None:
@@ -382,8 +382,8 @@ while True:
         # cycle backgrounds: off -> each background -> off
         cv2.setTrackbarPos('Background', 'controls', (look.background + 2) % (len(art.backgrounds) + 1))
     elif key == ord('m'):
-        # cycle Cody poses: off -> each pose -> off
-        cv2.setTrackbarPos('Cody', 'controls', (look.mascot + 2) % (len(art.mascots) + 1))
+        # cycle mascot poses: off -> each pose -> off
+        cv2.setTrackbarPos('Mascot', 'controls', (look.mascot + 2) % (len(art.mascots) + 1))
     elif key == ord('o'):
         # cycle branded frames: each frame -> off -> first frame
         cv2.setTrackbarPos('Frame', 'controls', (look.frame + 2) % (len(art.frames) + 1))

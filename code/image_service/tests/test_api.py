@@ -79,7 +79,7 @@ class TestCatalog(ApiTestCase):
         self.assertEqual(catalog['focus_modes'][1]['name'], 'Color Pop')
         self.assertEqual(len(catalog['stickers']), 7)
         self.assertEqual(len(catalog['props']), 8)
-        self.assertEqual(catalog['backgrounds'][3]['name'], 'go csn')
+        self.assertEqual(catalog['backgrounds'][4]['name'], 'spotlights')
         self.assertEqual(catalog['off'], -1)
         # look_defaults has every Look setting, so Laravel can start from it
         self.assertEqual(set(catalog['look_defaults']), {f.name for f in fields(Look)})

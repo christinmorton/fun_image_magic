@@ -51,7 +51,7 @@ def on_white(bgra):
     return (bgra[..., :3] * alpha + 255 * (1 - alpha)).astype(np.uint8)
 
 def key_out_green(img):
-    # the model can't make transparent images, so cartoon Cody is drawn on bright green;
+    # the model can't make transparent images, so the cartoon mascot is drawn on bright green;
     # turn the green into transparency (a chroma key, like a green screen)
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     green = cv2.inRange(hsv, (40, 120, 120), (85, 255, 255))
@@ -94,14 +94,14 @@ def main():
               "bright neon signs. Keep the person exactly the same: face, hair, clothes, pose and size.")
     results.append(('2_background_vegas', prompt, [photo]))
 
-    # 3. cartoon Cody: the three Cody cut-outs as reference images
-    codys = [on_white(cv2.imread(str(p), cv2.IMREAD_UNCHANGED))
-             for p in sorted((ASSETS_DIR / 'mascot').glob('*.png'))]
-    prompt = ("These photos show Cody, a coyote mascot in a costume. Draw Cody as a friendly flat "
-              "vector cartoon character: the same grey and cream coyote face, big eyes, and a blue "
-              "CSN jersey. Full body, standing, waving with one paw. Plain solid bright green "
-              "(#00FF00) background, no other objects, no text, no shadow.")
-    results.append(('3_cartoon_cody', prompt, codys))
+    # 3. cartoon mascot: the mascot poses in core/assets/mascot/ as reference images
+    mascots = [on_white(cv2.imread(str(p), cv2.IMREAD_UNCHANGED))
+               for p in sorted((ASSETS_DIR / 'mascot').glob('*.png'))]
+    prompt = ("These images show a mascot character. Draw it as a friendly flat vector cartoon "
+              "character with the same face, colours and outfit. Full body, standing, waving with "
+              "one hand. Plain solid bright green (#00FF00) background, no other objects, no text, "
+              "no shadow.")
+    results.append(('3_cartoon_mascot', prompt, mascots))
 
     tracker = Tracker(MODELS_DIR)
     total = 0.0

@@ -75,9 +75,9 @@ def stored_photo(request, photo_id):
 
 
 app = FastAPI(
-    title='CSN Image Service',
+    title='Image Service',
     version=SERVICE_VERSION,
-    description='Creates and edits photo booth images for the CSN web app. '
+    description='Creates and edits photo booth images. '
                 'Every /v1 route needs the shared token: Authorization: Bearer <IMAGE_SERVICE_TOKEN>.',
     lifespan=lifespan,
 )
@@ -175,7 +175,7 @@ PHOTO = 'PASTE-YOUR-PHOTO-ID'
 RENDER_EXAMPLES = {
     'full_look': {
         'summary': 'A full look',
-        'description': 'Sunglasses, Vegas background, color pop, classic frame and a Cody prop',
+        'description': 'Sunglasses, Vegas background, color pop, classic frame and a mascot prop',
         'value': {'photo_id': PHOTO, 'look': {
             'sticker': 0, 'background': 5, 'focus': 1, 'frame': 0,
             'props': [{'prop': 5, 'x': 0.8, 'y': 0.6, 'size': 0.6}]}},
