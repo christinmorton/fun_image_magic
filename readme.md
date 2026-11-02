@@ -1,3 +1,47 @@
+# Fun Image Magic
+
+A photo booth that started as a course project on image processing (OpenCV). It grew into
+a desktop booth, then an image service with AI styles. The image service is now a
+**brand-neutral base**, meant to be copied into future apps.
+
+## Where things are (2026-11-02)
+
+| Folder | Branch | What it is |
+| --- | --- | --- |
+| `code/course_project/` | `master` | The original course app: sliders, kernels, greyscale |
+| `code/course_project_extended/` | `photo-booth-extended` | The first photo booth, built for a college event |
+| `code/course_project_enhanced/` | `photo-booth-enhanced` | The modular desktop booth: four-slot editor, masks, props, mascot poses, an AI trial |
+| `code/image_service/` | `image-service` | **Current work.** The engine (`core/`), an HTTP API that any app can call (`api/`), and the desktop booth (`desktop/`) |
+| `docs/` | | Plans, reviews, pricing notes, lessons and archived records |
+
+Each branch builds on the one before it, so `image-service` contains them all.
+
+### The image service
+
+- **Rebranding a copy:** edit `core/brand.py` (name, cheer, colours), then run
+  `tools\make_assets.py`.
+- **Callers:** an app's API calls it server to server, with a shared token.
+- **Running it** (from `code/image_service/`):
+  - Tests: `.\.venv\Scripts\python.exe -m unittest discover tests`
+  - API: `.\.venv\Scripts\python.exe -m uvicorn api.main:app --port 8000`, with docs at
+    `/docs`
+  - Desktop booth: `.\.venv\Scripts\python.exe desktop\app.py`
+
+### The archived version (v0.1.0)
+
+The first, college-branded version of the image service was handed to a separate web app
+on 2026-11-01. It's kept, unchanged, as the git tag **`image-service-v0.1.0`** (commit
+`e7602fc`).
+
+- **To get it back:** run `git checkout image-service-v0.1.0`, then
+  `git switch image-service` to return.
+- **More:** `docs/desktop-to-api-lessons.md` has other ways to get it back, what changed
+  after it, and what we learned from turning the desktop booth into an API service.
+
+---
+
+## The original idea (2026-10-30)
+
 I want to create a fun image filter feature for a local college event. The main idea is that the students could pose with a version of their mascot or just funny picture ideas that they have at the time. I would like to get into augmented reality and 3d image manipulation as well. This is more of a fun experiement for me but it may be fun for the students too. But this is my ultimate goal of taking this course and putting the knowledge to use.
 
 traditional image processing, filters, contrast, saturation and a few other features. This course does not cover inserting cartoon characters, 3d characters, or any generative AI.
