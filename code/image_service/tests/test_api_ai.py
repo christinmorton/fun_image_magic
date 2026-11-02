@@ -32,7 +32,7 @@ class AiTestCase(PhotoTestCase):
         return self.client.post('/v1/ai/jobs', headers=AUTH, json={'photo_id': photo_id, 'preset': preset, **extra})
 
     def wait_for(self, job_id, timeout=15):
-        # poll the job like Laravel would, until it finishes
+        # poll the job like the app would, until it finishes
         end = time.time() + timeout
         while time.time() < end:
             job = self.client.get(f'/v1/ai/jobs/{job_id}', headers=AUTH).json()
@@ -114,7 +114,7 @@ class TestWebhook(AiTestCase):
         delivered = []
         self.jobs.deliver = lambda job, token, event: delivered.append((event, job.as_dict(), token))
         photo_id = self.upload().json()['photo_id']
-        job_id = self.start(photo_id, callback_url='https://laravel.example/ai-done').json()['job_id']
+        job_id = self.start(photo_id, callback_url='https://app.example/ai-done').json()['job_id']
         self.wait_for(job_id)
         for _ in range(100):                                                   # the last one comes just after
             if delivered and delivered[-1][0] == 'done':
@@ -128,12 +128,12 @@ class TestWebhook(AiTestCase):
         self.assertEqual(self.start(photo_id, callback_url='not a url').status_code, 422)
 
     def test_webhook_is_signed_with_the_token(self):
-        job = api.ai_jobs.Job('job1', 'photo1', 'comic', 'https://laravel.example/ai-done', status='done', stage='done')
+        job = api.ai_jobs.Job('job1', 'photo1', 'comic', 'https://app.example/ai-done', status='done', stage='done')
         with mock.patch.object(api.ai_jobs.httpx, 'post') as post:
             api.ai_jobs.deliver_webhook(job, 'secret-token', 'done')
         body, headers = post.call_args.kwargs['content'], post.call_args.kwargs['headers']
         expected = hmac.new(b'secret-token', body, hashlib.sha256).hexdigest()
-        self.assertEqual(headers['X-Image-Service-Signature'], f'sha256={expected}')     # how Laravel checks it
+        self.assertEqual(headers['X-Image-Service-Signature'], f'sha256={expected}')     # how the app checks it
         self.assertEqual((json.loads(body)['event'], json.loads(body)['status']), ('done', 'done'))
 
 

@@ -1,5 +1,10 @@
 # CSN Image Service: Hand-off
 
+> **Archived record.** This describes the image service as it was handed to another
+> project on 2026-11-01 (v0.1.0, git tag `image-service-v0.1.0`). It was moved here from
+> `code/image_service/` and isn't kept up to date. The current service is brand-neutral
+> and written for any calling app.
+
 A standalone Python service that creates and edits photo-booth images (filters, stickers,
 background swaps, frames, props, layouts, AI styles and backgrounds) behind an HTTP API.
 It was built to be called by a separate web app (Laravel), which owns users, the UI and

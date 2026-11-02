@@ -1,5 +1,10 @@
 # Image Service API: Plan
 
+> **Historical plan.** It was written for one particular web app, which now has its own
+> copy of the service (git tag `image-service-v0.1.0`). The service no longer assumes that
+> app: any app's API can call it. The plan is kept as a record of the decisions, and step 4
+> isn't planned here.
+
 Plan for turning the photo booth into a **standalone Python image service** that a Laravel
 web app calls. Written 2026-11-01 to start a later session. **No code yet.**
 

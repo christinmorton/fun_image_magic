@@ -12,14 +12,14 @@ from api.limits import RateLimiter            # noqa: E402
 class TestRateLimiter(unittest.TestCase):
     def test_counts_per_minute_and_forgets_old_requests(self):
         limiter = RateLimiter(2)
-        self.assertEqual(limiter.wait_seconds('laravel'), 0)
-        self.assertEqual(limiter.wait_seconds('laravel'), 0)
-        self.assertGreater(limiter.wait_seconds('laravel'), 0)       # a third within the minute
+        self.assertEqual(limiter.wait_seconds('app'), 0)
+        self.assertEqual(limiter.wait_seconds('app'), 0)
+        self.assertGreater(limiter.wait_seconds('app'), 0)           # a third within the minute
         self.assertEqual(limiter.wait_seconds('someone-else'), 0)     # counted per client
-        calls = limiter._calls['laravel']
+        calls = limiter._calls['app']
         for i in range(len(calls)):
             calls[i] -= 61                                            # pretend a minute passed
-        self.assertEqual(limiter.wait_seconds('laravel'), 0)
+        self.assertEqual(limiter.wait_seconds('app'), 0)
 
     def test_zero_means_no_limit(self):
         limiter = RateLimiter(0)

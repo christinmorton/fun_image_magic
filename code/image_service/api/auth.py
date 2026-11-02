@@ -1,4 +1,4 @@
-# auth: every /v1 request must carry the shared secret from Laravel:
+# auth: every /v1 request must carry the shared secret from the calling app:
 #   Authorization: Bearer <IMAGE_SERVICE_TOKEN>
 import hmac
 

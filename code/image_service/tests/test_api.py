@@ -81,7 +81,7 @@ class TestCatalog(ApiTestCase):
         self.assertEqual(len(catalog['props']), 8)
         self.assertEqual(catalog['backgrounds'][4]['name'], 'spotlights')
         self.assertEqual(catalog['off'], -1)
-        # look_defaults has every Look setting, so Laravel can start from it
+        # look_defaults has every Look setting, so the app can start from it
         self.assertEqual(set(catalog['look_defaults']), {f.name for f in fields(Look)})
 
     def test_thumbnails(self):

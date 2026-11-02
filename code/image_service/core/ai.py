@@ -25,7 +25,7 @@ KEEP_LIKENESS = ("Keep the person's face, hair, expression and pose recognisable
 
 @dataclass(frozen=True)
 class AiPreset:
-    key: str          # what Laravel sends, e.g. "comic"
+    key: str          # what the app sends, e.g. "comic"
     name: str         # for the screen
     kind: str         # "style" (restyle the whole photo) or "background" (new scene, same person)
     prompt: str

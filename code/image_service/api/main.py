@@ -85,7 +85,7 @@ app = FastAPI(
 
 @app.middleware('http')
 async def processing_time(request, call_next):
-    # every response says how long the service worked on it, so Laravel can log or show it:
+    # every response says how long the service worked on it, so the app can log or show it:
     #   X-Processing-Time-Ms: 68.4      Server-Timing: app;dur=68.4
     start = time.perf_counter()
     response = await call_next(request)
@@ -97,7 +97,7 @@ async def processing_time(request, call_next):
 
 @app.get('/health', tags=['service'])
 def health():
-    # no token needed, so a monitor or Laravel can check the service is up
+    # no token needed, so a monitor or the app can check the service is up
     return {'status': 'ok', 'version': SERVICE_VERSION}
 
 

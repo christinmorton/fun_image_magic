@@ -12,19 +12,19 @@ started as a course project on OpenCV image processing and was first built for a
 event. The CSN version is archived (see below). It's a personal experiment, and the owner is
 free to change anything.
 
-## The Laravel hand-off is finished; it's not this project's concern
+## Who calls the service
 
-- A separate Laravel project took its own copy of the image service (v0.1.0, described in
-  `code/image_service/HANDOFF.md` on 2026-11-01). **That project owns that version.**
-- That version is archived as the git tag `image-service-v0.1.0` (commit `e7602fc`). To see
-  what has changed since: `git diff image-service-v0.1.0 -- code/image_service`.
-- This project has no obligations to it. The API routes, the look JSON, catalog numbering
-  and settings can all change freely. Don't add backwards compatibility, versioning or
-  migration notes for it.
-- Don't plan, build or test Laravel integration here. Step 4 of `docs/api-service-plan.md`
-  belongs to that project.
-- `HANDOFF.md` is a historical record of what was handed over. Leave it as it is; don't
-  keep it in sync with new changes.
+- **An app's API, in general.** The service is called server to server with the shared
+  token, by any app in any framework or language. Don't assume a particular caller, and
+  don't plan, build or test integration with a specific app here.
+- An earlier version (v0.1.0) was handed to another project, which owns its own copy. It's
+  archived as the git tag `image-service-v0.1.0` (commit `e7602fc`). To see what has
+  changed since: `git diff image-service-v0.1.0 -- code/image_service`.
+- This project has no obligations to that copy. The API routes, the look JSON, catalog
+  numbering and settings can all change freely. Don't add backwards compatibility,
+  versioning or migration notes for it.
+- History, kept as it was: `docs/image-service-v0.1.0-handoff.md` (what was handed over) and
+  `docs/api-service-plan.md` (the original plan). Don't keep them in sync with new changes.
 
 ## Layout
 
@@ -34,7 +34,7 @@ free to change anything.
 | `code/course_project_extended/` | `photo-booth-extended` | The first CSN photo booth |
 | `code/course_project_enhanced/` | `photo-booth-enhanced` | The modular desktop booth: four-slot editor, masks, props, Cody poses |
 | `code/image_service/` | `image-service` | **Current work.** `core/` (the engine), `api/` (FastAPI), `desktop/` (the OpenCV booth using `core/`) |
-| `docs/` | | Plans, reviews and pricing notes, in plain English |
+| `docs/` | | Plans, reviews, pricing notes and archived records, in plain English |
 | `resources/` | (gitignored) | Source art (Cody PSDs and cut-outs, CSN branding), test images, research |
 
 - Each folder under `code/` has its own `.venv` (Python 3.15.2, Windows).
@@ -54,9 +54,9 @@ free to change anything.
 
 - **Read `docs/desktop-to-api-lessons.md` before putting the live booth behind a network.**
   Turning the desktop app into an API service lost the webcam and the live feel.
-- **Keep `code/image_service/` brand-neutral.** Don't add school, company or event names.
-  The Las Vegas scenes and AI presets are kept on purpose. `HANDOFF.md` keeps its CSN
-  history.
+- **Keep `code/image_service/` brand-neutral.** Don't add school, company or event names,
+  or the name of a particular calling app or framework. The Las Vegas scenes and AI presets
+  are kept on purpose.
 - **Rebranding a copy:**
   1. Edit `core/brand.py` (name, cheer, colours).
   2. Run `tools\make_assets.py`.

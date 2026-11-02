@@ -1,6 +1,6 @@
 # limits: a simple per-minute request limit for the routes that do real work (uploads,
 # renders, layouts, AI jobs), so a runaway loop or a flood of requests can't overload the
-# machine. It counts per client address; normally the only client is the Laravel server.
+# machine. It counts per client address; often the only client is the app's own server.
 import threading
 import time
 from collections import defaultdict, deque

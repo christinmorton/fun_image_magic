@@ -36,6 +36,6 @@ def ai_configured():
     return bool(os.environ.get('GEMINI_API_KEY'))
 
 def service_token():
-    # the shared secret Laravel sends with every /v1 request (IMAGE_SERVICE_TOKEN in .env);
+    # the shared secret the calling app sends with every /v1 request (IMAGE_SERVICE_TOKEN in .env);
     # read on each call, so a changed environment (or a test) takes effect straight away
     return os.environ.get('IMAGE_SERVICE_TOKEN', '')

@@ -1,5 +1,5 @@
-# catalog: everything a user can choose (presets, filters, art...), described for Laravel,
-# plus small PNG thumbnails of the art so the web app can show picker buttons.
+# catalog: everything a user can choose (presets, filters, art...), described for the calling
+# app, plus small PNG thumbnails of the art so the app can show picker buttons.
 from dataclasses import asdict
 
 import cv2

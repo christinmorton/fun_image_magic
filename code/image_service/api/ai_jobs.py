@@ -1,5 +1,5 @@
 # ai_jobs: AI requests take 10-30 seconds, so they run as background jobs. A job turns one
-# stored photo into a new stored photo with an AI preset. Laravel can follow its progress by
+# stored photo into a new stored photo with an AI preset. The app can follow its progress by
 # polling it, by webhooks (one per stage, signed), or by a live event stream. A daily limit
 # caps spending.
 #
@@ -100,8 +100,8 @@ class DailyLimit:
 
 
 def deliver_webhook(job, token, event):
-    # POST the job to Laravel, with "event": "progress" (a new stage), "done" or "failed".
-    # The body is signed with the shared token, so Laravel can check it came from this service:
+    # POST the job to the app's callback_url, with "event": "progress" (a new stage), "done" or "failed".
+    # The body is signed with the shared token, so the app can check it came from this service:
     #   X-Image-Service-Signature: sha256=<HMAC-SHA256 of the raw body, keyed with the token>
     body = json.dumps({'event': event, **job.as_dict()}).encode('utf-8')
     signature = hmac.new(token.encode('utf-8'), body, hashlib.sha256).hexdigest()
@@ -109,7 +109,7 @@ def deliver_webhook(job, token, event):
         httpx.post(job.callback_url, content=body, timeout=3 if event == 'progress' else 10,
                    headers={'Content-Type': 'application/json', 'X-Image-Service-Signature': f'sha256={signature}'})
     except httpx.HTTPError:
-        pass        # a missed update isn't fatal: Laravel can still poll GET /v1/ai/jobs/{id}
+        pass        # a missed update isn't fatal: the app can still poll GET /v1/ai/jobs/{id}
 
 
 class AiJobs:
