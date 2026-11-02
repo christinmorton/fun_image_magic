@@ -7,7 +7,7 @@ from core.env_file import load_env
 SERVICE_DIR = Path(__file__).resolve().parent.parent
 load_env(SERVICE_DIR / '.env')      # keys already set in the real environment win
 
-SERVICE_VERSION = '0.1.0'
+SERVICE_VERSION = '0.2.0'           # keep in step with CHANGELOG.md
 
 
 def photo_ttl_seconds():
