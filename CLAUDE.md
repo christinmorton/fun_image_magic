@@ -34,6 +34,7 @@ free to change anything.
 | `code/course_project_extended/` | `photo-booth-extended` | The first CSN photo booth |
 | `code/course_project_enhanced/` | `photo-booth-enhanced` | The modular desktop booth: four-slot editor, masks, props, Cody poses |
 | `code/image_service/` | `image-service` | **Current work.** `core/` (the engine), `api/` (FastAPI), `desktop/` (the OpenCV booth using `core/`) |
+| `code/image_service_template/` | `image-service` | **Frozen template** for starting new apps: an exact copy of one release of `image_service` |
 | `docs/` | | Plans, reviews, pricing notes and archived records, in plain English |
 | `resources/` | (gitignored) | Source art (Cody PSDs and cut-outs, CSN branding), test images, research |
 
@@ -52,6 +53,17 @@ free to change anything.
 
 ## Things to know
 
+- **Never edit `code/image_service_template/` by hand.** It's a frozen copy for starting new
+  apps. Fixes go into `code/image_service/`, and the template only changes when a new
+  release is cut from it. See `docs/template-plan.md`.
+- **Releases:**
+  1. Record each change under "Unreleased" in `code/image_service/CHANGELOG.md`.
+  2. To release, turn "Unreleased" into the version, set `SERVICE_VERSION` in
+     `api/settings.py`, run the tests, and commit.
+  3. Run `py tools\cut_template.py`, then the template's tests.
+  4. Commit the template and tag it `image-service-template-v<version>`.
+
+  Only cut a release when the owner asks.
 - **Read `docs/desktop-to-api-lessons.md` before putting the live booth behind a network.**
   Turning the desktop app into an API service lost the webcam and the live feel.
 - **Keep `code/image_service/` brand-neutral.** Don't add school, company or event names,

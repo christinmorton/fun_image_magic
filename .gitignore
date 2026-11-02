@@ -4,6 +4,8 @@ code/course_project_enhanced/output/
 code/course_project_enhanced/experiments/output/
 code/image_service/desktop/output/
 code/image_service/experiments/output/
+code/image_service_template/desktop/output/
+code/image_service_template/experiments/output/
 __pycache__/
 # API keys: never commit them (.env.example has the names only, no values)
 .env
