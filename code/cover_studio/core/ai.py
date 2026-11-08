@@ -106,7 +106,8 @@ class GeminiGenerator:
         self.client = genai.Client()
         self.model = model
 
-    def generate(self, prompt, images, aspect_ratio):
+    def generate(self, prompt, images, aspect_ratio, image_size='1K'):
+        # image_size: '1K', '2K' or '4K' (bigger costs more; see docs/ai-api-pricing.md)
         content = [{'type': 'text', 'text': prompt}]
         for img in images:
             ok, png = cv2.imencode('.png', img)
@@ -115,7 +116,7 @@ class GeminiGenerator:
         try:
             interaction = self.client.interactions.create(
                 model=self.model, input=content,
-                response_format={'type': 'image', 'aspect_ratio': aspect_ratio, 'image_size': '1K'})
+                response_format={'type': 'image', 'aspect_ratio': aspect_ratio, 'image_size': image_size})
             data = base64.b64decode(interaction.output_image.data)
         except Exception as error:      # network, quota, safety block... (never includes the key)
             raise AiError(f'{type(error).__name__}: {str(error)[:300]}') from error
