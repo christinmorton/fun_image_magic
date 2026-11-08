@@ -12,6 +12,7 @@ code/cover_studio/experiments/output/
 code/cover_studio/subjects/
 code/cover_studio/designs/
 code/cover_studio/exports/
+code/cover_studio/spending.json
 __pycache__/
 # API keys: never commit them (.env.example has the names only, no values)
 .env
