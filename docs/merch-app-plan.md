@@ -147,8 +147,10 @@ Other regions start once a New Orleans design can be scanned, made, lettered and
     between the sides of the face.
 16. ✅ **Auto-capture** each angle when the head is in position *and* the shot is good: one
     face only, face big enough (by height, which doesn't change as the head turns),
-    centred, well lit, sharp, eyes open, and the chin level with the front shot. The
-    sharpest frame of a short steady hold is kept.
+    centred, well lit, sharp, eyes open, and the chin level with the front shot. The pose
+    must be held steady (within 4°) for a second, so a side shot is taken where the head
+    stops, not while it's still turning; the sharpest frame of the hold is kept, then
+    "Got it!" shows for a moment before the next angle.
 17. ✅ **Save** the angles to `subjects/<name>/` (`core/subjects.py`) only after a permission
     box is ticked (agreed, not under 18, not a public figure). A **"load photos"** option
     sorts photos into front, left and right by how the head is turned.
