@@ -9,7 +9,8 @@ from dataclasses import dataclass, field
 import cv2
 import numpy as np
 
-from .lettering import FONT_OF, PAD, draw_words, featuring_list, finish, load_font, paste, plain, sticker
+from .lettering import (FONT_OF, PAD, draw_words, featuring_list, finish, load_font, paste, plain, sticker,
+                        text_mask)
 
 PIECES = ['sticker', 'featuring', 'presents', 'title', 'name']     # drawing order: the name ends on top
 
@@ -80,11 +81,14 @@ def fit_size(text, font_name, width, height, stretch=1.0):
     left, top, right, bottom = load_font(font_name, 100).getbbox(text)
     return max(8, int(min(width * 100 / max(right - left, 1), height * 100 / max((bottom - top) * stretch, 1))))
 
-def arch(img, bend):
-    # bow the words up (bend > 0) or sag them (bend < 0) by |bend| times their height
+def arch(img, bend, pad=0):
+    # bow the words up (bend > 0) or sag them (bend < 0) by about |bend| times their height.
+    # The curve spans the ink (inside `pad` empty pixels at each side), and is gentler for
+    # short words, which a full arch would squash
     h, w = img.shape[:2]
-    amount = abs(bend) * h
-    u = (np.arange(w, dtype=np.float32) - w / 2) / (w / 2)
+    ink_w, ink_h = max(w - 2 * pad, 1), max(h - 2 * pad, 1)
+    amount = abs(bend) * ink_h * min(1.0, ink_w / (4 * ink_h))
+    u = np.clip((np.arange(w, dtype=np.float32) - w / 2) / (ink_w / 2), -1, 1)
     lift = amount * (1 - u * u) if bend > 0 else amount * u * u
     out_h = h + int(np.ceil(amount))
     map_x = np.tile(np.arange(w, dtype=np.float32), (out_h, 1))
@@ -99,36 +103,63 @@ def recede(img, amount):
     moved = np.float32([[inset, 0], [w - inset, 0], [w, h], [0, h]])
     return cv2.warpPerspective(img, cv2.getPerspectiveTransform(corners, moved), (w, h))
 
+def ink_box(mask):
+    # where the letters actually are in a mask: (x, y, width, height)
+    ys, xs = np.where(mask > 0.5)
+    if not len(xs):
+        return 0, 0, mask.shape[1], mask.shape[0]
+    return int(xs.min()), int(ys.min()), int(xs.max() - xs.min() + 1), int(ys.max() - ys.min() + 1)
+
+def shaped(img, spot, pad):
+    # the spot's arch and perspective, applied the same way to a picture or a mask
+    if spot.bend:
+        img = arch(img, spot.bend, pad)
+    if spot.recede:
+        img = recede(img, spot.recede)
+    return img
+
+def fitted_words(text, treatment, spot, bw, bh, seed):
+    # the words drawn as big as they can be while their letters, once arched or tilted,
+    # still fit inside bw x bh: (BGRA image, where the letters are in it)
+    font = FONT_OF[treatment]
+    size = fit_size(text, font, bw, bh, 1 + abs(spot.bend) / 2)
+    for _ in range(4):
+        box = ink_box(shaped(text_mask(text, font, size, int(size * PAD)), spot, int(size * PAD)))
+        fit = min(bw / box[2], bh / box[3])
+        if 0.96 <= fit <= 1.0:
+            break
+        size = max(8, int(size * fit * 0.99))
+    pad = int(size * PAD)
+    box = ink_box(shaped(text_mask(text, font, size, pad), spot, pad))
+    return shaped(draw_words(text, treatment, size, seed), spot, pad), box
+
 def piece_image(piece, words, layout, styles, bw, bh, seed):
-    # one text piece drawn to fit a bw x bh box: (BGRA image, empty pixels at each side), or None
+    # one text piece drawn to fit a bw x bh box: (BGRA image, where its letters are in it
+    # as (x, y, width, height)), or None if the piece is empty. Pieces are placed by their
+    # letters, not by the empty space kept around them for glows
     if piece in ('name', 'title'):
         text = getattr(words, piece).strip()
         if not text:
             return None
-        spot, treatment = layout.spots[piece], styles[piece]
-        size = fit_size(text, FONT_OF[treatment], bw, bh, 1 + abs(spot.bend))
-        img = draw_words(text, treatment, size, seed)
-        if spot.bend:
-            img = arch(img, spot.bend)
-        if spot.recede:
-            img = recede(img, spot.recede)
-        return img, int(size * PAD)
+        return fitted_words(text, styles[piece], layout.spots[piece], bw, bh, seed)
     if piece == 'presents':
         text = words.presents.strip().upper()
         if not text:
             return None
         size = fit_size(text, 'serif', bw, bh)
-        return plain(text, 'serif', size), int(size * PAD)
+        img, pad = plain(text, 'serif', size), int(size * PAD)
+        return img, (pad, pad, img.shape[1] - 2 * pad, img.shape[0] - 2 * pad)
     if piece == 'featuring':
         if not any(n.strip() for n in words.featuring):
             return None
-        return featuring_list(words.featuring, int(bw), int(bh), layout.heading), 0
+        img = featuring_list(words.featuring, int(bw), int(bh), layout.heading)
+        return img, (0, 0, img.shape[1], img.shape[0])
     if not any(line.strip() for line in words.sticker):
         return None
     img = sticker(words.sticker, int(bh))
     if img.shape[1] > bw:                                   # long wording: a smaller sticker
         img = sticker(words.sticker, max(int(bh * bw / img.shape[1]), 20))
-    return img, 0
+    return img, (0, 0, img.shape[1], img.shape[0])
 
 def draw_cover_lettering(words, layout, size, styles=None, seed=0):
     # every piece of `words` placed by `layout` on a size x size cover, as a BGRA layer.
@@ -145,10 +176,9 @@ def draw_cover_lettering(words, layout, size, styles=None, seed=0):
         drawn = piece_image(piece, words, layout, styles, bw, bh, seed)
         if drawn is None:
             continue
-        img, pad = drawn
-        ih, iw = img.shape[:2]
-        x = {'left': bx - pad, 'right': bx + bw - iw + pad}.get(spot.align, bx + (bw - iw) / 2)
-        bgr, alpha = paste(bgr, alpha, img, x, by + (bh - ih) / 2)
+        img, (ix, iy, iw, ih) = drawn
+        x = {'left': bx - ix, 'right': bx + bw - ix - iw}.get(spot.align, bx + (bw - iw) / 2 - ix)
+        bgr, alpha = paste(bgr, alpha, img, x, by + (bh - ih) / 2 - iy)
     return finish(bgr, alpha)
 
 def apply_lettering(picture, lettering):

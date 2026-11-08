@@ -57,6 +57,20 @@ class TestLayouts(unittest.TestCase):
         self.assertGreater(ink(layer, 0, 0.22), 0.05)
         self.assertEqual(ink(layer, 0.3, 1), 0)                    # nothing spilled below its box
 
+    def test_a_short_title_sits_centred_in_its_box(self):
+        # the plain serif style has no sparkles, so its solid ink is just the letters
+        for key, layout in LAYOUTS.items():
+            with self.subTest(layout=key):
+                layer = draw_cover_lettering(CoverWords(name='', title='RICH', sticker=()), key, SIZE,
+                                             styles={'title': 'serif'})
+                ys, xs = np.where(layer[..., 3] > 128)
+                s = layout.spots['title']
+                left, top, right, bottom = s.x * SIZE, s.y * SIZE, (s.x + s.w) * SIZE, (s.y + s.h) * SIZE
+                self.assertGreaterEqual(ys.min(), top - 2)
+                self.assertLessEqual(ys.max(), bottom + 2)
+                self.assertLess(abs((ys.min() + ys.max()) / 2 - (top + bottom) / 2), 3)     # centred up and down
+                self.assertLess(abs((xs.min() + xs.max()) / 2 - (left + right) / 2), 3)     # and across
+
     def test_styles_can_be_swapped(self):
         gold = draw_cover_lettering(WORDS, 'hero', SIZE)
         chrome = draw_cover_lettering(WORDS, 'hero', SIZE, styles={'name': 'chrome'})
