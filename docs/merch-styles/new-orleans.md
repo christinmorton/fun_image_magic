@@ -148,7 +148,10 @@ What makes it look like 1998 instead of a modern render:
 - **An airbrushed look** on skin and surfaces: smooth, glossy, slightly unreal
 - **Stacked collage depth:** objects layered in front of each other with no attempt at
   realistic perspective
-- **A light print grain**, as if scanned from a CD booklet (added in code, optional)
+- **The age of the original:** an early-Photoshop JPEG, printed in a CD booklet and
+  scanned: soft, faintly blocky, with colour fringes, faded warm blacks, grain and dust.
+  Added in code by the `print` finish (`core/finish.py`); `vhs` is a heavier, tape-worn
+  version
 
 ---
 

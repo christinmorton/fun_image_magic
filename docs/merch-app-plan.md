@@ -121,6 +121,17 @@ Other regions start once a New Orleans design can be scanned, made, lettered and
 14. **Only if a treatment needs it:** a vector template (SVG) or a hand-made alphabet, as
     described in the style README.
 
+**After the first hand test (2026-11-08):**
+- ✅ **Titles are placed by their letters**, after any arch or perspective, so short titles
+  sit centred inside their box. Arches are gentler on short words.
+- ✅ **Ice looks like real stones:** brilliant-cut stones with bright and dark facets,
+  small stones in the gaps, rare rainbow flashes, glints and bloom, instead of round beads.
+- ✅ **Aged finishes** (`core/finish.py`): `print` (an early-Photoshop JPEG, printed and
+  scanned: soft, blocky, colour fringes, faded warm blacks, grain, dust) and `vhs` (plus
+  smeared colour, scan lines, wobble and tracking noise). The lettering screen starts on
+  `print` and the A key cycles them; saved files and recipes include the finish. Once there
+  is artwork, the same finish should age the whole cover together.
+
 ### Phase 3: The guided scan (likeness)
 15. **Live guide:** MediaPipe's face landmarker in video mode, with head pose turned on,
     shows on screen which way to turn ("look straight", "turn left", "turn right", maybe
