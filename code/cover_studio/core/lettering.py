@@ -425,31 +425,77 @@ def featuring_list(names, width, height, heading='Featuring:', colours=LIST_COLO
         y += size * 1.18
     return finish(bgr, alpha)
 
-def sticker(lines=('CERTIFIED', 'HOOD CLASSIC'), height=200):
-    # our own advisory-style badge, never the real Parental Advisory mark: a rounded black
-    # box with a gold border, the lines in white narrow capitals with the last one biggest
-    lines = [line.strip().upper() for line in lines if line.strip()]
-    if not lines:
-        raise ValueError('the sticker has no words')
-    border, margin = max(2, int(height * 0.05)), int(height * 0.13)
-    sizes = [height * 0.2] * (len(lines) - 1) + [height * 0.36]
-    scale = min(1.0, (height - 2 * margin) / (sum(sizes) * 1.12))     # many lines: shrink them all
-    masks = [text_mask(line, 'narrow', int(s * scale), 0) for line, s in zip(lines, sizes)]
-    width = max(m.shape[1] for m in masks) + 2 * margin
-    radius = int(height * 0.12)
+STICKER_STYLES = ['badge', 'stamp', 'hazard']
+
+def rounded_box(height, width, radius):
+    # a soft-edged rounded rectangle filling height x width (1 inside, 0 outside)
     box = np.zeros((height, width), np.uint8)
     cv2.rectangle(box, (radius, radius), (width - 1 - radius, height - 1 - radius), 255, -1)
     box = cv2.dilate(box, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * radius + 1, 2 * radius + 1)))
-    box = soften(box.astype(np.float32) / 255.0, 0.7)
-    inside = soften(cv2.erode(box, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * border + 1, 2 * border + 1))), 0.7)
-    bgr, alpha = blank(box)
-    bgr, alpha = over(bgr, alpha, hex_bgr('#e8b923'), box)          # gold border
-    bgr, alpha = over(bgr, alpha, hex_bgr('#0b0b0b'), inside)
-    ink = np.zeros_like(box)
+    return soften(box.astype(np.float32) / 255.0, 0.7)
+
+def shrink(mask, px):
+    # the mask made `px` pixels thinner all round; beyond the canvas counts as empty, so a
+    # shape that touches the edges still shrinks there
+    px = max(1, int(round(px)))
+    return cv2.erode(mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * px + 1, 2 * px + 1)),
+                     borderType=cv2.BORDER_CONSTANT, borderValue=0)
+
+def rotated(img, degrees):
+    # a BGRA image turned by `degrees`, on a canvas big enough to keep the corners
+    h, w = img.shape[:2]
+    turn = cv2.getRotationMatrix2D((w / 2, h / 2), degrees, 1.0)
+    cos, sin = abs(turn[0, 0]), abs(turn[0, 1])
+    nw, nh = int(w * cos + h * sin) + 2, int(w * sin + h * cos) + 2
+    turn[0, 2] += (nw - w) / 2
+    turn[1, 2] += (nh - h) / 2
+    return cv2.warpAffine(img, turn, (nw, nh), flags=cv2.INTER_LINEAR, borderValue=(0, 0, 0, 0))
+
+def sticker(lines=('CERTIFIED', 'HOOD CLASSIC'), height=200, style='badge', seed=0):
+    # our own advisory-style stickers, never the real Parental Advisory mark. The lines are
+    # in narrow capitals, the last one biggest. Styles:
+    #   badge:  a rounded black box with a gold border and white words
+    #   stamp:  a red rubber stamp with a double border and worn ink, slightly tilted
+    #   hazard: a yellow box with a black hazard-stripe border and black words
+    lines = [line.strip().upper() for line in lines if line.strip()]
+    if not lines:
+        raise ValueError('the sticker has no words')
+    if style not in STICKER_STYLES:
+        raise ValueError(f'unknown sticker style "{style}"; use one of {STICKER_STYLES}')
+    border = max(2, int(height * (0.12 if style == 'hazard' else 0.05)))
+    margin = int(height * 0.13) + (border if style == 'hazard' else 0)
+    sizes = [height * 0.2] * (len(lines) - 1) + [height * 0.36]
+    scale = min(1.0, (height - 2 * margin) / (sum(sizes) * 1.12))     # many lines: shrink them all
+    masks = [text_mask(line, 'narrow', max(6, int(s * scale)), 0) for line, s in zip(lines, sizes)]
+    width = max(m.shape[1] for m in masks) + 2 * margin
+    box = rounded_box(height, width, int(height * (0.06 if style == 'hazard' else 0.12)))
+    words = np.zeros_like(box)
     y = (height - sum(m.shape[0] for m in masks) * 1.12) / 2
     for m in masks:
         x, top = int((width - m.shape[1]) / 2), int(round(y))
-        ink[top:top + m.shape[0], x:x + m.shape[1]] = np.maximum(ink[top:top + m.shape[0], x:x + m.shape[1]], m)
+        words[top:top + m.shape[0], x:x + m.shape[1]] = np.maximum(words[top:top + m.shape[0], x:x + m.shape[1]], m)
         y += m.shape[0] * 1.12
-    bgr, alpha = over(bgr, alpha, WHITE, ink)
-    return finish(bgr, alpha)
+    bgr, alpha = blank(box)
+    if style == 'badge':
+        bgr, alpha = over(bgr, alpha, hex_bgr('#e8b923'), box)               # gold border
+        bgr, alpha = over(bgr, alpha, hex_bgr('#0b0b0b'), soften(shrink(box, border), 0.7))
+        bgr, alpha = over(bgr, alpha, WHITE, words)
+        return finish(bgr, alpha)
+    if style == 'hazard':
+        yy, xx = np.indices(box.shape)
+        stripes = (((xx + yy) // max(3, int(height * 0.09))) % 2).astype(np.float32)
+        inside = soften(shrink(box, border), 0.7)
+        bgr, alpha = over(bgr, alpha, hex_bgr('#ffd400'), box)
+        bgr, alpha = over(bgr, alpha, hex_bgr('#111111'), (box - inside) * stripes)
+        bgr, alpha = over(bgr, alpha, hex_bgr('#111111'), np.clip(box - shrink(box, max(1, border * 0.15)), 0, 1))
+        bgr, alpha = over(bgr, alpha, hex_bgr('#111111'), words)
+        return finish(bgr, alpha)
+    # stamp: two rings and the words in red ink, with patchy wear, then a slight tilt
+    ring = np.clip(box - shrink(box, border), 0, 1)
+    inner = shrink(box, border * 2.2)
+    ring = np.maximum(ring, np.clip(inner - shrink(inner, max(1, border * 0.5)), 0, 1))
+    ink = np.maximum(ring, words)
+    wear = noise(box.shape, max(2, height * 0.04), np.random.default_rng(seed))
+    ink = ink * smoothstep(0.18, 0.4, wear) * 0.92
+    bgr, alpha = over(bgr, alpha, hex_bgr('#c8102e'), ink)
+    return rotated(finish(bgr, alpha), 8)

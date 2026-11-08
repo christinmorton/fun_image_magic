@@ -77,6 +77,20 @@ class TestSupportingText(unittest.TestCase):
         self.assertEqual(two[60, two.shape[1] // 2, 3], 255)     # a solid box, not see-through
         with self.assertRaises(ValueError):
             sticker((' ',), 120)
+        with self.assertRaises(ValueError):
+            sticker(('PARENTAL', 'ADVISORY'), 120, style='riaa')
+
+    def test_sticker_styles(self):
+        badge = sticker(('CERTIFIED', 'HOOD CLASSIC'), 120, 'badge')
+        # the gold border runs along the straight edges too, not only round the corners
+        b, g, r = badge[3, badge.shape[1] // 2, :3].astype(int)
+        self.assertTrue(r > 180 and g > 140 and b < 90, (b, g, r))
+        hazard = sticker(('WARNING', 'TOO HOT'), 120, 'hazard')
+        edge = hazard[6, 20:-20, :3].astype(int).sum(axis=1)
+        self.assertTrue(edge.min() < 120 and edge.max() > 400)   # black and yellow stripes along the top
+        stamp = sticker(('STREET', 'CERTIFIED'), 120, 'stamp', seed=1)
+        self.assertGreater(stamp.shape[0], 120)                  # tilted, so taller than its box
+        self.assertLess(stamp[..., 3].mean(), badge[..., 3].mean())   # ink only, no filled box
 
     def test_plain_text(self):
         img = plain('BIG TEE PRESENTS', 'serif', 40)
