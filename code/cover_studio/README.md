@@ -29,7 +29,8 @@ work, but aren't part of this app's focus.
 - **Cover Studio lettering screen** (free, no AI): `.\.venv\Scripts\python.exe desktop\studio.py`.
   Type the words, pick a layout and styles, and press S to save the lettering as a
   print-size transparent PNG (3600 px square) in `designs\`, with a preview and a recipe
-  that remakes it. The keys are shown at the top of the window.
+  that remakes it. A cycles the aged finish (clean, print, VHS). The keys are shown at the
+  top of the window.
 - Desktop booth (from the template): `.\.venv\Scripts\python.exe desktop\app.py`
 - Lettering preview sheet (free, no AI):
   `.\.venv\Scripts\python.exe experiments\lettering_sheet.py "YOUR NAME"`, saved to

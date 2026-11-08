@@ -55,6 +55,16 @@ class TestLetteringScreen(unittest.TestCase):
         self.assertEqual(screen.seed, 2)
         self.assertFalse(np.array_equal(before, screen.cover()))         # the cover is redrawn
 
+    def test_finish_key_cycles_and_changes_the_cover(self):
+        screen = LetteringScreen()
+        self.assertEqual(screen.finish, 'print')                         # aged by default
+        aged = screen.cover().copy()
+        screen.handle_key(ord('a'))
+        self.assertEqual(screen.finish, 'vhs')
+        screen.handle_key(ord('a'))
+        self.assertEqual(screen.finish, 'clean')
+        self.assertFalse(np.array_equal(aged, screen.cover()))
+
     def test_quit_save_and_nothing(self):
         screen = LetteringScreen()
         self.assertEqual(screen.handle_key(ord('q')), 'quit')

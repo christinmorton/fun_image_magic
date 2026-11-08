@@ -22,6 +22,7 @@ if str(SERVICE_DIR) not in sys.path:
 from core.cover_layout import (LAYOUTS, CoverWords, apply_lettering, draw_cover_lettering,   # noqa: E402
                                placeholder, square_crop)
 from core.designs import save_lettering                                                      # noqa: E402
+from core.finish import FINISHES, age                                                        # noqa: E402
 from core.lettering import TREATMENTS                                                        # noqa: E402
 from desktop.sources import choose_image_file, load_image                                    # noqa: E402
 
@@ -88,6 +89,7 @@ class LetteringScreen:
         self.layout = LAYOUT_KEYS[0]
         self.styles = dict(LAYOUTS[self.layout].styles)
         self.seed = 1
+        self.finish = 'print'                # aged like a 90s CD booklet (see core/finish.py)
         self.picture = None                  # the BGR picture behind the words (None = placeholder)
         self.ask = ask                       # how to ask for text (a dialog; replaced in tests)
         self.message, self.message_until = '', 0.0
@@ -95,15 +97,15 @@ class LetteringScreen:
         self._cover = (None, None)
 
     def settings(self):
-        return (repr(self.words), self.layout, tuple(sorted(self.styles.items())), self.seed)
+        return (repr(self.words), self.layout, tuple(sorted(self.styles.items())), self.seed, self.finish)
 
     def cover(self):
-        # the cover on screen: the picture with the lettering over it
+        # the cover on screen: the picture with the (aged) lettering over it
         key = self.settings() + (id(self.picture),)
         if self._cover[0] != key:
             if self._layer[0] != self.settings():
-                self._layer = (self.settings(),
-                               draw_cover_lettering(self.words, self.layout, PREVIEW, self.styles, self.seed))
+                layer = draw_cover_lettering(self.words, self.layout, PREVIEW, self.styles, self.seed)
+                self._layer = (self.settings(), age(layer, self.finish, 1.0, self.seed))
             if self.picture is None:
                 picture = placeholder(PREVIEW, 4 if self.layout == 'crew_row' else 1)
             else:
@@ -115,13 +117,13 @@ class LetteringScreen:
         # the whole window: a bar with the settings and keys, above the cover
         bar = np.full((BAR_H, PREVIEW, 3), 40, np.uint8)
         layout = LAYOUTS[self.layout]
-        status = (f'{layout.name} layout   name: {self.styles["name"]}   '
-                  f'title: {self.styles["title"]}   look #{self.seed}')
+        status = (f'{layout.name}   name: {self.styles["name"]}   title: {self.styles["title"]}   '
+                  f'finish: {self.finish}   look #{self.seed}')
         showing_message = self.message and (now or time.time()) < self.message_until
         cv2.putText(bar, self.message if showing_message else status, (14, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.65,
                     GOLD if showing_message else (255, 255, 255), 2, cv2.LINE_AA)
         hints = ['N name   T title   P presents   F featuring   K sticker',
-                 'L layout   1 name style   2 title style   R reshuffle',
+                 'L layout   1 name style   2 title style   A aged finish   R reshuffle',
                  'U picture   B plain   S save print file   Q quit']
         for i, hint in enumerate(hints):
             cv2.putText(bar, hint, (14, 58 + 22 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1, cv2.LINE_AA)
@@ -155,8 +157,11 @@ class LetteringScreen:
             self.styles['name'] = next_in(STYLE_NAMES, self.styles['name'])
         elif k == '2':
             self.styles['title'] = next_in(STYLE_NAMES, self.styles['title'])
+        elif k == 'a':
+            self.finish = next_in(FINISHES, self.finish)
+            self.say(f'Finish: {self.finish}')
         elif k == 'r':
-            self.seed += 1                   # new sparkles, gems and burn marks
+            self.seed += 1                   # new sparkles, gems, burn marks and grain
         elif k == 'u':
             path = choose_image_file()
             image = load_image(path) if path else None
@@ -169,7 +174,7 @@ class LetteringScreen:
         return None
 
     def save(self):
-        return save_lettering(self.words, self.layout, self.styles, self.seed, self.picture)
+        return save_lettering(self.words, self.layout, self.styles, self.seed, self.picture, finish=self.finish)
 
 
 def main():
