@@ -95,6 +95,11 @@ def draw_scan(frame, scanner, flash=False, note=''):
         y, x = int(h * 0.48), int(w * 0.12)
         start, end = ((x + 70, y), (x, y)) if angle.key == 'left' else ((w - x - 70, y), (w - x, y))
         cv2.arrowedLine(view, start, end, GOLD, 6, cv2.LINE_AA, tipLength=0.4)
+    if angle is not None:                               # what the scan sees, and what it needs
+        seen = f'turn {scanner.turn:+.0f} deg' if scanner.seen and scanner.turn is not None else 'no face'
+        reading = f'{seen}   ({angle.key} needs {angle.low:+.0f} to {angle.high:+.0f})'
+        cv2.putText(view, reading, (12, h - 14), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 0, 0), 4, cv2.LINE_AA)
+        cv2.putText(view, reading, (12, h - 14), cv2.FONT_HERSHEY_SIMPLEX, 0.55, WHITE, 1, cv2.LINE_AA)
     if flash:
         view[:] = 255
     bar = np.full((BAR_H, w, 3), 30, np.uint8)
