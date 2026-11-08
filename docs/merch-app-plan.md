@@ -106,11 +106,13 @@ Other regions start once a New Orleans design can be scanned, made, lettered and
 10. ✅ **Fonts:** only fonts licensed for commercial use (for example Google Fonts under the
     OFL), stored in `core/assets/fonts/` with their licences: Alfa Slab One, Black Ops One,
     Bungee, Permanent Marker (Apache 2.0), Anton and Abril Fatface.
-11. **Text pieces:** the name, a "presents" line, the title, the featuring list and our own
-    advisory-style sticker.
-12. **Layout templates:** the guide's four layouts (Hero, Head in the sky, Boss desk, Crew
+11. ✅ **Text pieces:** the name, a "presents" line, the title, the featuring list and our own
+    advisory-style sticker (2026-11-08). Featuring lists shrink to fit and split into even
+    lines; a plain serif treatment was added for quieter titles.
+12. ✅ **Layout templates:** the guide's four layouts (Hero, Head in the sky, Boss desk, Crew
     row) as positions for each text piece on the square cover, checked over a placeholder
-    picture.
+    picture (`core/cover_layout.py`; preview with `experiments/cover_layouts_sheet.py`).
+    Titles can arch or recede in perspective.
 13. **A lettering screen** in the desktop app: type the words, pick a treatment and layout,
     see the result, and save it as a transparent PNG at print size.
 14. **Only if a treatment needs it:** a vector template (SVG) or a hand-made alphabet, as
