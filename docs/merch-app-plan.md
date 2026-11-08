@@ -113,8 +113,11 @@ Other regions start once a New Orleans design can be scanned, made, lettered and
     row) as positions for each text piece on the square cover, checked over a placeholder
     picture (`core/cover_layout.py`; preview with `experiments/cover_layouts_sheet.py`).
     Titles can arch or recede in perspective.
-13. **A lettering screen** in the desktop app: type the words, pick a treatment and layout,
-    see the result, and save it as a transparent PNG at print size.
+13. ✅ **A lettering screen** in the desktop app: type the words, pick a treatment and layout,
+    see the result, and save it as a transparent PNG at print size (`desktop/studio.py`,
+    2026-11-08). Saving writes `designs/<date>-<name>/` with `lettering.png` (3600 px),
+    `preview.jpg` and `recipe.json`, and takes 2–5 seconds. Its logic is tested; the
+    window itself still needs a first try by hand.
 14. **Only if a treatment needs it:** a vector template (SVG) or a hand-made alphabet, as
     described in the style README.
 
