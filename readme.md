@@ -11,11 +11,12 @@ a desktop booth, then an image service with AI styles. The image service is now 
 | `code/course_project/` | `master` | The original course app: sliders, kernels, greyscale |
 | `code/course_project_extended/` | `photo-booth-extended` | The first photo booth, built for a college event |
 | `code/course_project_enhanced/` | `photo-booth-enhanced` | The modular desktop booth: four-slot editor, masks, props, mascot poses, an AI trial |
-| `code/image_service/` | `image-service` | **Current work.** The engine (`core/`), an HTTP API that any app can call (`api/`), and the desktop booth (`desktop/`) |
+| `code/image_service/` | `image-service` | **The reusable base.** The engine (`core/`), an HTTP API that any app can call (`api/`), and the desktop booth (`desktop/`) |
 | `code/image_service_template/` | `image-service` | **Frozen template** for starting new apps: a copy of one release of the image service (see `docs/template-plan.md`) |
+| `code/cover_studio/` | `cover-studio` | **Current work.** A desktop app, copied from template 0.2.0, that puts a person into 90s Southern rap album-cover art (see `docs/merch-app-plan.md`) |
 | `docs/` | | Plans, reviews, pricing notes, lessons and archived records |
 
-Each branch builds on the one before it, so `image-service` contains them all.
+Each branch builds on the one before it, so `cover-studio` contains them all.
 
 ### The image service
 

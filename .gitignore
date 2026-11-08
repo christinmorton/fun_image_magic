@@ -6,6 +6,12 @@ code/image_service/desktop/output/
 code/image_service/experiments/output/
 code/image_service_template/desktop/output/
 code/image_service_template/experiments/output/
+code/cover_studio/desktop/output/
+code/cover_studio/experiments/output/
+# cover studio: people's scans and the designs made from them stay on this machine
+code/cover_studio/subjects/
+code/cover_studio/designs/
+code/cover_studio/exports/
 __pycache__/
 # API keys: never commit them (.env.example has the names only, no values)
 .env

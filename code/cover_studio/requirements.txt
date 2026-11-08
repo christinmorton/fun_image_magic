@@ -1,0 +1,12 @@
+# Install with:  .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+# Use opencv-contrib-python (what MediaPipe needs), NOT opencv-python: both install the
+# same cv2 folder and conflict if both are present.
+numpy==2.5.4
+mediapipe==1.2.0
+opencv-contrib-python==5.0.0.93
+# AI image generation (Google Gemini / Nano Banana); needs GEMINI_API_KEY in .env
+google-genai==2.34.0
+# the web API (api/): FastAPI, served by uvicorn
+fastapi==0.162.0
+uvicorn==0.54.0
+python-multipart==0.0.33     # lets FastAPI receive uploaded files

@@ -81,7 +81,7 @@ regions come after that works end to end.
    (2026-11-08), with its output and personal-data folders gitignored.
 2. ✅ Give it its own `.venv` and README (template version 0.2.0). The `.env` with the
    Gemini key waits until Phase 4, the first step that needs it.
-3. Run its tests to prove the copy works.
+3. ✅ Run its tests to prove the copy works (72 pass, 2026-11-08).
 4. ✅ Add it to the layout table in `CLAUDE.md` and the readme.
 
 **New Orleans goes all the way through first.** Phases 1–5 use only the New Orleans style.

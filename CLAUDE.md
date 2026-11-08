@@ -33,8 +33,9 @@ free to change anything.
 | `code/course_project/` | `master` | The original course app (sliders, kernels, greyscale) |
 | `code/course_project_extended/` | `photo-booth-extended` | The first CSN photo booth |
 | `code/course_project_enhanced/` | `photo-booth-enhanced` | The modular desktop booth: four-slot editor, masks, props, Cody poses |
-| `code/image_service/` | `image-service` | **Current work.** `core/` (the engine), `api/` (FastAPI), `desktop/` (the OpenCV booth using `core/`) |
+| `code/image_service/` | `image-service` | **The reusable base.** `core/` (the engine), `api/` (FastAPI), `desktop/` (the OpenCV booth using `core/`) |
 | `code/image_service_template/` | `image-service` | **Frozen template** for starting new apps: an exact copy of one release of `image_service` |
+| `code/cover_studio/` | `cover-studio` | **Current work.** A desktop app from template 0.2.0 that puts a person into 90s Southern rap cover art. New work goes in `core/` and `desktop/`; `api/` is unused for now. Plan: `docs/merch-app-plan.md` |
 | `docs/` | | Plans, reviews, pricing notes and archived records, in plain English |
 | `resources/` | (gitignored) | Source art (Cody PSDs and cut-outs, CSN branding), test images, research |
 
