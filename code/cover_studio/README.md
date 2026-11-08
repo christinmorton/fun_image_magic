@@ -30,6 +30,9 @@ work, but aren't part of this app's focus.
 - Lettering preview sheet (free, no AI):
   `.\.venv\Scripts\python.exe experiments\lettering_sheet.py "YOUR NAME"`, saved to
   `experiments\output\lettering_sheet.png`
+- Cover layouts preview (free, no AI): every layout's lettering over a placeholder picture:
+  `.\.venv\Scripts\python.exe experiments\cover_layouts_sheet.py "YOUR NAME"`, saved to
+  `experiments\output\cover_layouts_sheet.png`
 
 ## Rules
 
