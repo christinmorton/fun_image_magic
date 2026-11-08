@@ -156,28 +156,3 @@ Not in the app plan yet; add these to it if this route is chosen.
 | Run Etsy alongside from day one? | Worth it: it's free search traffic, and the shop already exists |
 | Which platform to post on first? | Pick one and post consistently before adding others |
 | First event | Something local and music-related |
-
-
-
-
-
-
-Written for: you, as a planning reference next to the app plan.
-
-I've created [docs/merch-getting-customers.md](docs/merch-getting-customers.md) and added a one-line link to it from the "Later" section of [docs/merch-app-plan.md](docs/merch-app-plan.md). Neither is committed.
-
-**What it covers:**
-- **Store first vs Etsy first:** a side-by-side table of where buyers come from, how fast the first sale comes, fees, rules, and who keeps the customer list.
-- **Six ways to get customers, best first:**
-  - short videos
-  - the event booth
-  - occasions where groups buy matching shirts (birthdays, family reunions and so on)
-  - customers sharing their free previews
-  - paid ads, later
-  - search, which is slow
-- **Starting simply:** a basic store with a three-photo order form, and each design made by hand in the desktop app.
-- **What the app would need** for this route: watermarked previews, a vertical reveal video for posting, an event order mode, group orders, and limits on free previews. These aren't in the app plan yet; the new doc says to add them if you go this way.
-- **Rules:** get permission before posting anyone's face, no celebrities or minors, gifted creators label their posts, and the album covers never appear in marketing.
-- **First steps, what to measure, and open questions.**
-
-The first step costs almost nothing: make covers of yourself and a few friends who agree to it, and order real samples. Those become your first videos and product photos, whichever store you start with.
