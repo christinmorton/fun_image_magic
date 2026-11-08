@@ -140,13 +140,24 @@ Other regions start once a New Orleans design can be scanned, made, lettered and
   borders only showed at the corners.
 
 ### Phase 3: The guided scan (likeness)
-15. **Live guide:** MediaPipe's face landmarker in video mode, with head pose turned on,
-    shows on screen which way to turn ("look straight", "turn left", "turn right", maybe
-    "chin up").
-16. **Auto-capture** each angle when the head is in position *and* the shot is good: one
-    face only, face big enough, sharp, well lit, eyes open.
-17. **Save** the angles to `subjects/<name>/` with a consent checkbox. A **"load photos"**
-    option covers people who can't sit at the webcam.
+15. ✅ **Live guide:** MediaPipe's face landmarker in video mode shows on screen which way to
+    turn ("look straight", "turn your head slowly to your left", then right), with an
+    arrow, a face oval and a ring that fills while the pose is held (`core/scan.py`,
+    `desktop/scan.py`, 2026-11-08). The head turn is measured from where the nose tip sits
+    between the sides of the face.
+16. ✅ **Auto-capture** each angle when the head is in position *and* the shot is good: one
+    face only, face big enough (by height, which doesn't change as the head turns),
+    centred, well lit, sharp, eyes open, and the chin level with the front shot. The
+    sharpest frame of a short steady hold is kept.
+17. ✅ **Save** the angles to `subjects/<name>/` (`core/subjects.py`) only after a permission
+    box is ticked (agreed, not under 18, not a public figure). A **"load photos"** option
+    sorts photos into front, left and right by how the head is turned.
+
+**Checked on 13 stock portraits** (in `resources/sample_profile_pics/`, not committed):
+turns read the right way, and front-facing faces read within ±5°. The face finder can't
+find a full side profile, so the side shots are three-quarter turns (20–55°), which also
+show the AI more of the face. The scan's logic is tested with made-up faces; the live
+webcam screen still needs a first try by hand, and its angles may need tuning then.
 
 ### Phase 4: Artwork for one person (the only paid step)
 18. **Likeness test first:** a small script sends your own three photos with the Inferno
