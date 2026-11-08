@@ -397,31 +397,42 @@ def even_lines(names, font, count, width):
 
 LIST_COLOURS = (WHITE, hex_bgr('#ff3b2f'))      # featuring lines alternate white and red
 
-def featuring_list(names, width, height, heading='Featuring:', colours=LIST_COLOURS):
+def featuring_list(names, width, height, heading='Featuring:', colours=LIST_COLOURS, inline=False):
     # a crowded, centred column of names in narrow capitals, filling a width x height box
-    # (the text shrinks until everything fits), as a BGRA image of exactly that size
+    # (the text shrinks until everything fits), as a BGRA image of exactly that size. The
+    # heading sits above the names, or with inline=True to their left (for a thin strip)
     names = [n.strip().upper() for n in names if n.strip()]
     if not names:
         raise ValueError('the featuring list is empty')
     for size in np.geomspace(max(height / 2.5, 8), 6, 60):
         font = load_font('narrow', int(size))
-        lines = wrap(names, font, width * 0.94)
         head = size * 0.85 if heading else 0
-        used = head * 1.25 + len(lines) * size * 1.18
-        if used <= height * 0.96 and max(font.getlength(line) for line in lines) <= width * 0.94:
+        head_w = load_font('brush', max(1, int(head))).getlength(heading) + size * 0.5 if heading and inline else 0
+        room = width * 0.94 - head_w                    # how wide the names may be
+        if room < size * 2:
+            continue
+        lines = wrap(names, font, room)
+        used = (head * 1.25 if heading and not inline else 0) + len(lines) * size * 1.18
+        if used <= height * 0.96 and max(font.getlength(line) for line in lines) <= room:
             break
     if len(lines) > 1:
-        lines = even_lines(names, font, len(lines), width * 0.94) or lines
+        lines = even_lines(names, font, len(lines), room) or lines
     size = int(size)
     bgr, alpha = np.zeros((height, width, 3), np.float32), np.zeros((height, width), np.float32)
+    names_w = max(font.getlength(line) for line in lines)
+    left = (width - head_w - names_w) / 2               # where the heading + names block starts
     y = (height - used) / 2
     if heading:
         img = plain(heading, 'brush', head, GLOW_YELLOW)
-        bgr, alpha = paste(bgr, alpha, img, (width - img.shape[1]) / 2, y - int(head * PAD))
-        y += head * 1.25
+        if inline:                                      # left of the names, centred beside them
+            bgr, alpha = paste(bgr, alpha, img, left - int(head * PAD), (height - img.shape[0]) / 2)
+        else:
+            bgr, alpha = paste(bgr, alpha, img, (width - img.shape[1]) / 2, y - int(head * PAD))
+            y += head * 1.25
     for i, line in enumerate(lines):
         img = plain(line, 'narrow', size, colours[i % len(colours)])
-        bgr, alpha = paste(bgr, alpha, img, (width - img.shape[1]) / 2, y - int(size * PAD))
+        centre = left + head_w + names_w / 2 if inline else width / 2
+        bgr, alpha = paste(bgr, alpha, img, centre - img.shape[1] / 2, y - int(size * PAD))
         y += size * 1.18
     return finish(bgr, alpha)
 

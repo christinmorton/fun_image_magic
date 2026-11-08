@@ -71,6 +71,15 @@ class TestLayouts(unittest.TestCase):
                 self.assertLess(abs((ys.min() + ys.max()) / 2 - (top + bottom) / 2), 3)     # centred up and down
                 self.assertLess(abs((xs.min() + xs.max()) / 2 - (left + right) / 2), 3)     # and across
 
+    def test_every_layout_labels_its_featuring_list(self):
+        for key, layout in LAYOUTS.items():
+            with self.subTest(layout=key):
+                self.assertTrue(layout.heading)
+                layer = draw_cover_lettering(CoverWords(name='', featuring=('Dre', 'Mama Jo'), sticker=()), key, SIZE)
+                b, g, r = (layer[..., i].astype(int) for i in range(3))
+                yellow = (layer[..., 3] > 200) & (r > 200) & (g > 170) & (b < 140)   # the brush-lettered label
+                self.assertGreater(yellow.sum(), 5)
+
     def test_a_finish_on_one_part_leaves_the_others_alone(self):
         clean = draw_cover_lettering(WORDS, 'hero', SIZE, seed=1)
         title_aged = draw_cover_lettering(WORDS, 'hero', SIZE, seed=1, finishes={'title': 'vhs'})

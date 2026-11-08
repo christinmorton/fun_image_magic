@@ -62,6 +62,15 @@ class TestSupportingText(unittest.TestCase):
         with self.assertRaises(ValueError):
             featuring_list(['  ', ''], 300, 200)
 
+    def test_featuring_label_beside_the_names(self):
+        img = featuring_list(CREW, 700, 50, 'Feat.', inline=True)
+        b, g, r = (img[..., i].astype(int) for i in range(3))
+        solid = img[..., 3] > 200
+        label = np.where(solid & (r > 200) & (g > 170) & (b < 140))[1]           # yellow
+        names = np.where(solid & (r > 230) & (g > 230) & (b > 230))[1]           # white
+        self.assertGreater(len(label), 0)
+        self.assertLess(label.max(), names.min())                                # the label comes first
+
     def test_even_lines_keep_every_name_and_avoid_a_lone_one(self):
         font = load_font('narrow', 30)
         lines = even_lines([n.upper() for n in CREW], font, 3, 10000)

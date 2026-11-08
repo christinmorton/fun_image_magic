@@ -42,7 +42,8 @@ class CoverLayout:
     name: str
     spots: dict                         # piece -> Spot (pieces without a spot aren't shown)
     styles: dict                        # 'name' / 'title' -> a lettering treatment
-    heading: str = 'Featuring:'         # above the featuring list ('' for none)
+    heading: str = 'Featuring:'         # the featuring list's label ('' for none)
+    heading_inline: bool = False        # the label to the left of the names, not above them
 
 
 @dataclass
@@ -81,7 +82,7 @@ LAYOUTS = {layout.key: layout for layout in [
         'sticker': Spot(0.03, 0.21, 0.2, 0.09, align='left'),
         'featuring': Spot(0.12, 0.735, 0.76, 0.065),
         'title': Spot(0.04, 0.80, 0.92, 0.17, recede=0.25),
-    }, {'name': 'gold', 'title': 'chrome'}, heading=''),
+    }, {'name': 'gold', 'title': 'chrome'}, heading='Feat.', heading_inline=True),
 ]}
 
 
@@ -162,7 +163,7 @@ def piece_image(piece, words, layout, styles, bw, bh, seed):
     if piece == 'featuring':
         if not any(n.strip() for n in words.featuring):
             return None
-        img = featuring_list(words.featuring, int(bw), int(bh), layout.heading)
+        img = featuring_list(words.featuring, int(bw), int(bh), layout.heading, inline=layout.heading_inline)
         return img, (0, 0, img.shape[1], img.shape[0])
     if not any(line.strip() for line in words.sticker):
         return None
