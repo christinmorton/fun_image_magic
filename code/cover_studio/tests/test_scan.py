@@ -139,14 +139,16 @@ class TestScanner(unittest.TestCase):
         clock, detect = FakeClock(), FakeDetect(face(0))
         scanner, frame = Scanner(detect, clock), busy_frame()
         capture(scanner, clock, frame)
+        messages = []
         for turn in range(-22, -56, -3):                                    # turning steadily left
             detect.faces = [face(turn)]
             scanner.feed(frame)
+            messages.append(scanner.message)
             clock.now += 0.1
         self.assertNotIn('left', scanner.captures)
-        self.assertEqual(scanner.message, 'Hold still')
-        detect.faces = [face(-35)]
-        hold(scanner, clock, frame)
+        self.assertIn('Hold still', messages)
+        detect.faces = [face(-35)]                     # settles: the first frame restarts the hold
+        hold(scanner, clock, frame, seconds=HOLD_SECONDS + 0.2)
         self.assertIn('left', scanner.captures)
 
     def test_a_problem_restarts_the_hold(self):

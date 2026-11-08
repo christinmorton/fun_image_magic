@@ -39,11 +39,13 @@ class Angle:
 
 
 # side shots are three-quarter turns: they show more of the face than a full profile, and
-# the face finder loses a face that's turned much further (checked on stock portraits)
+# the face finder loses a face that's turned much further (checked on stock portraits).
+# The reading runs high for small turns (a slight turn reads about 20), so a side shot
+# needs at least 28 to show the face from the side rather than almost straight on
 ANGLES = [
     Angle('front', 'Look straight at the camera', -10, 10),
-    Angle('left', 'Turn your head slowly to your left', -55, -20),
-    Angle('right', 'Turn your head slowly to your right', 20, 55),
+    Angle('left', 'Turn your head slowly to your left', -55, -28),
+    Angle('right', 'Turn your head slowly to your right', 28, 55),
 ]
 
 
