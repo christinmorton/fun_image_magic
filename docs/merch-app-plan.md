@@ -162,9 +162,21 @@ show the AI more of the face. The scan's logic is tested with made-up faces; the
 webcam screen still needs a first try by hand, and its angles may need tuning then.
 
 ### Phase 4: Artwork for one person (the only paid step)
-18. **Likeness test first:** a small script sends your own three photos with the Inferno
+18. ✅ **Likeness test first:** a small script sends your own three photos with the Inferno
     and Boss office prompts. It asks before running and costs under $1. The results decide
     between one AI request and the collage approach.
+    **Result (2026-11-08, one subject, 4 images, about $0.18, 13–26 s each):**
+    - The person stayed recognisable in all four; the **three-angle** versions looked closer
+      than front-only. Use all three angles by default.
+    - The style landed (fire, gold library, cash, chandelier), a little too clean for 1998;
+      the `print` finish over the whole cover fixes that.
+    - No text in the images (one scribble on a cigar box). The top and bottom were mostly
+      left clear for the lettering.
+    - **One AI request works for one person**, so the collage approach is only needed if
+      crews need it.
+    - The AI added gold chains every time: jewellery must be controlled in the prompt
+      (chosen pieces, or "no jewellery").
+    - Artwork + lettering + `print` finish made a convincing full cover locally, for free.
 19. **Prompt builder:** the guide's base + one scene + the person + clothing and jewellery
     choices + layout space. Always "no text".
 20. **Send the subject's angle photos as references** to Nano Banana. It accepts several
