@@ -5,6 +5,7 @@
 # camera and the guide. Turns are measured in the mirrored (selfie) picture the person
 # sees, so "left" is their own left; captures are saved the right way round.
 import math
+import time
 from dataclasses import dataclass, field
 
 import cv2
@@ -14,7 +15,9 @@ from mediapipe.tasks.python import BaseOptions, vision
 
 NOSE, FOREHEAD, CHIN, SIDE_A, SIDE_B = 1, 10, 152, 234, 454      # MediaPipe face mesh points
 
-HOLD_FRAMES = 8             # good frames in a row before a capture (about a quarter second)
+HOLD_SECONDS = 1.0          # how long a good, steady pose is held before it's captured
+STEADY = 4.0                # degrees the head may move during the hold (more = still turning)
+PAUSE_SECONDS = 1.2         # after a capture, "Got it!" shows this long before the next angle
 MIN_SHARPNESS = 40.0        # detail in the face (see sharpness()); below this is blurry
 MIN_FACE, MAX_FACE = 0.3, 0.85        # face height, as a fraction of the picture's height (height,
                                       # not width: a face looks narrower as it turns, not shorter)
@@ -132,12 +135,15 @@ def turn_advice(angle, turn):
 
 class Scanner:
     # walks through ANGLES, one capture each. feed() it every frame the person sees (the
-    # mirrored picture); captures holds the finished angles, the right way round
-    def __init__(self, detect):
+    # mirrored picture); captures holds the finished angles, the right way round. A pose
+    # is captured once it has been good and steady for HOLD_SECONDS
+    def __init__(self, detect, clock=time.monotonic):
         self.detect = detect            # detect(frame) -> list of Face
+        self.clock = clock              # seconds (replaced in tests)
         self.captures = {}              # angle key -> BGR picture
         self.front_level = None
-        self.streak = []                # (sharpness, frame, level) of the current steady hold
+        self.hold = None                # the current steady hold: started, first turn, best frame...
+        self.paused_until = 0.0         # after a capture, wait before the next angle
         self.message = ''
         self.turn = None                # the latest head turn seen (for the screen)
         self.just_captured = None       # the key captured by the latest feed(), for a flash
@@ -153,7 +159,10 @@ class Scanner:
 
     @property
     def progress(self):
-        return len(self.streak) / HOLD_FRAMES
+        # 0-1 through the current hold
+        if self.hold is None:
+            return 0.0
+        return min(1.0, (self.clock() - self.hold['started']) / HOLD_SECONDS)
 
     def redo(self, key=None):
         # scan one angle again (or all of them, if key is None)
@@ -161,12 +170,12 @@ class Scanner:
             self.captures.pop(k, None)
         if 'front' not in self.captures:
             self.front_level = None
-        self.streak, self.turn = [], None
+        self.hold, self.turn, self.paused_until = None, None, 0.0
 
     def feed(self, frame):
         self.just_captured = None
         angle = self.current
-        if angle is None:
+        if angle is None or self.clock() < self.paused_until:
             return
         shot = check_shot(frame, self.detect(frame))
         lost_while_turning = (not shot.found and self.turn is not None and angle.key != 'front'
@@ -183,17 +192,23 @@ class Scanner:
                 problems.append(advice)
             elif angle.key != 'front' and self.front_level is not None and abs(shot.level - self.front_level) > LEVEL:
                 problems.append('Keep your chin level, like in the first shot')
+        if not problems and self.hold is not None and abs(shot.turn - self.hold['turn']) > STEADY:
+            problems.append('Hold still')                       # still turning: start the hold again
         if problems:
-            self.streak, self.message = [], problems[0]
+            self.hold, self.message = None, problems[0]
             return
-        self.streak.append((shot.sharpness, frame.copy(), shot.level))
+        now = self.clock()
+        if self.hold is None:
+            self.hold = {'started': now, 'turn': shot.turn, 'sharpness': -1.0}
+        if shot.sharpness > self.hold['sharpness']:              # keep only the sharpest frame so far
+            self.hold.update(sharpness=shot.sharpness, frame=frame.copy(), level=shot.level)
         self.message = 'Hold it there...'
-        if len(self.streak) >= HOLD_FRAMES:
-            _, best, level = max(self.streak, key=lambda s: s[0])
-            self.captures[angle.key] = cv2.flip(best, 1)        # un-mirrored: how others see them
+        if now - self.hold['started'] >= HOLD_SECONDS:
+            self.captures[angle.key] = cv2.flip(self.hold['frame'], 1)   # un-mirrored: how others see them
             if angle.key == 'front':
-                self.front_level = level
-            self.streak, self.message, self.just_captured = [], 'Got it!', angle.key
+                self.front_level = self.hold['level']
+            self.hold, self.message, self.just_captured = None, 'Got it!', angle.key
+            self.paused_until = now + PAUSE_SECONDS
 
 
 def sort_photos(photos, detect):

@@ -14,8 +14,8 @@ SERVICE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SERVICE_DIR))
 
 from core import MODELS_DIR                                                         # noqa: E402
-from core.scan import (CHIN, FOREHEAD, HOLD_FRAMES, NOSE, SIDE_A, SIDE_B, Face,     # noqa: E402
-                       FaceDetector, Scanner, check_shot, head_level, head_turn, sort_photos)
+from core.scan import (CHIN, FOREHEAD, HOLD_SECONDS, NOSE, PAUSE_SECONDS, SIDE_A,   # noqa: E402
+                       SIDE_B, Face, FaceDetector, Scanner, check_shot, head_level, head_turn, sort_photos)
 
 W, H = 640, 480
 
@@ -46,6 +46,28 @@ class FakeDetect:
 
     def __call__(self, frame):
         return self.faces
+
+
+class FakeClock:
+    # time that only moves when a test moves it
+    def __init__(self):
+        self.now = 100.0
+
+    def __call__(self):
+        return self.now
+
+
+def hold(scanner, clock, frame, seconds=HOLD_SECONDS, step=0.1):
+    # feed frames for a little over `seconds` (a frame every `step`), like holding a pose
+    # (one extra frame, as adding 0.1 ten times comes to just under 1)
+    for _ in range(int(round(seconds / step)) + 2):
+        scanner.feed(frame)
+        clock.now += step
+
+def capture(scanner, clock, frame):
+    # hold long enough for a capture, then wait out the pause after it
+    hold(scanner, clock, frame)
+    clock.now += PAUSE_SECONDS
 
 
 class TestHeadPose(unittest.TestCase):
@@ -82,28 +104,28 @@ class TestShotChecks(unittest.TestCase):
 
 
 class TestScanner(unittest.TestCase):
-    def hold(self, scanner, frame, n=HOLD_FRAMES):
-        for _ in range(n):
-            scanner.feed(frame)
-
     def test_front_left_right(self):
-        detect = FakeDetect(face(0))
-        scanner, frame = Scanner(detect), busy_frame()
+        clock, detect = FakeClock(), FakeDetect(face(0))
+        scanner, frame = Scanner(detect, clock), busy_frame()
         self.assertEqual(scanner.current.key, 'front')
-        self.hold(scanner, frame, HOLD_FRAMES - 1)
+        hold(scanner, clock, frame, seconds=HOLD_SECONDS - 0.2)
         self.assertEqual((scanner.captures, scanner.message), ({}, 'Hold it there...'))
-        scanner.feed(frame)
-        self.assertEqual(scanner.just_captured, 'front')
+        self.assertGreater(scanner.progress, 0.5)
+        hold(scanner, clock, frame, seconds=0.2)
+        self.assertEqual(list(scanner.captures), ['front'])
         self.assertTrue(np.array_equal(scanner.captures['front'], cv2.flip(frame, 1)))   # saved un-mirrored
+        scanner.feed(frame)                                                  # during the pause: ignored
+        self.assertEqual(scanner.message, 'Got it!')
+        clock.now += PAUSE_SECONDS
         scanner.feed(frame)                                                  # still facing front
         self.assertEqual(scanner.message, 'Keep turning to your left')
         detect.faces = [face(-35)]
-        self.hold(scanner, frame)
+        capture(scanner, clock, frame)
         detect.faces = [face(35, level=0.7)]                                # chin dropped
         scanner.feed(frame)
         self.assertIn('chin level', scanner.message)
         detect.faces = [face(35)]
-        self.hold(scanner, frame)
+        capture(scanner, clock, frame)
         self.assertTrue(scanner.done)
         self.assertEqual(list(scanner.captures), ['front', 'left', 'right'])
         scanner.redo('left')
@@ -111,19 +133,34 @@ class TestScanner(unittest.TestCase):
         scanner.redo()
         self.assertEqual((scanner.captures, scanner.current.key), ({}, 'front'))
 
+    def test_no_capture_while_still_turning(self):
+        # passing through the range on the way round doesn't count: the head must settle
+        clock, detect = FakeClock(), FakeDetect(face(0))
+        scanner, frame = Scanner(detect, clock), busy_frame()
+        capture(scanner, clock, frame)
+        for turn in range(-22, -56, -3):                                    # turning steadily left
+            detect.faces = [face(turn)]
+            scanner.feed(frame)
+            clock.now += 0.1
+        self.assertNotIn('left', scanner.captures)
+        self.assertEqual(scanner.message, 'Hold still')
+        detect.faces = [face(-35)]
+        hold(scanner, clock, frame)
+        self.assertIn('left', scanner.captures)
+
     def test_a_problem_restarts_the_hold(self):
-        detect = FakeDetect(face(0))
-        scanner = Scanner(detect)
-        self.hold(scanner, busy_frame(), HOLD_FRAMES - 1)
+        clock, detect = FakeClock(), FakeDetect(face(0))
+        scanner = Scanner(detect, clock)
+        hold(scanner, clock, busy_frame(), seconds=HOLD_SECONDS - 0.2)
         detect.faces = []
         scanner.feed(busy_frame())
         self.assertEqual(scanner.progress, 0)
         self.assertIn('No face', scanner.message)
 
     def test_turned_too_far_to_be_found(self):
-        detect = FakeDetect(face(0))
-        scanner = Scanner(detect)
-        self.hold(scanner, busy_frame())
+        clock, detect = FakeClock(), FakeDetect(face(0))
+        scanner = Scanner(detect, clock)
+        capture(scanner, clock, busy_frame())
         detect.faces = [face(-50)]
         scanner.feed(busy_frame())
         detect.faces = []                                                   # turned out of sight
@@ -131,11 +168,13 @@ class TestScanner(unittest.TestCase):
         self.assertEqual(scanner.message, 'Too far: turn back a little')
 
     def test_the_sharpest_frame_is_kept(self):
-        scanner = Scanner(FakeDetect(face(0)))
+        clock = FakeClock()
+        scanner = Scanner(FakeDetect(face(0)), clock)
         sharp = busy_frame(1)
         soft = cv2.addWeighted(sharp, 0.5, cv2.GaussianBlur(sharp, (0, 0), 2), 0.5, 0)   # softer, but passes
-        for i in range(HOLD_FRAMES):
-            scanner.feed(sharp if i == 3 else soft)
+        for i in range(12):
+            scanner.feed(sharp if i == 4 else soft)
+            clock.now += 0.1
         self.assertTrue(np.array_equal(scanner.captures['front'], cv2.flip(sharp, 1)))
 
 
