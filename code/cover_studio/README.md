@@ -37,6 +37,13 @@ work, but aren't part of this app's focus.
   the person's name and permission, then guides them through three angles with the webcam
   (straight on, a three-quarter turn to their left, then to their right), capturing each
   automatically. S saves them to `subjects\<name>\`; P loads photos instead.
+  Someone scanned before the current permission wording can be asked again with
+  `desktop\scan.py --reconfirm <their folder>`.
+- **Likeness test** (COSTS MONEY with `--run`, about $0.18): sends a subject's photos to
+  Gemini with two New Orleans scenes, once with the front photo and once with all angles.
+  Without `--run` it's a free dry run that prints what it would send:
+  `.\.venv\Scripts\python.exe experiments\likeness_test.py <subject> [--run]`. It refuses to
+  send anyone who hasn't agreed to the current wording.
 - Desktop booth (from the template): `.\.venv\Scripts\python.exe desktop\app.py`
 - Lettering preview sheet (free, no AI):
   `.\.venv\Scripts\python.exe experiments\lettering_sheet.py "YOUR NAME"`, saved to
