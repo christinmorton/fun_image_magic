@@ -5,6 +5,8 @@
 # capturing each one automatically, and saves them to subjects/<name>/. Photos can be
 # loaded instead (P, or when there's no webcam). Free to use: no AI.
 # Run from the cover_studio folder:  .\.venv\Scripts\python.exe desktop\scan.py
+# To show someone already scanned the current permission wording and record their answer:
+#   .\.venv\Scripts\python.exe desktop\scan.py --reconfirm <their folder in subjects\>
 import ctypes
 import sys
 import time
@@ -21,7 +23,8 @@ if str(SERVICE_DIR) not in sys.path:
 
 from core import MODELS_DIR                                        # noqa: E402
 from core.scan import ANGLES, FaceDetector, Scanner, sort_photos   # noqa: E402
-from core.subjects import save_subject                             # noqa: E402
+from core.subjects import (CONSENT_TEXT, SUBJECTS_DIR, has_current_consent,   # noqa: E402
+                           load_subject, reconfirm_consent, save_subject)
 from desktop.sources import PictureSource                          # noqa: E402
 from desktop.studio import ask_text, window_closed                 # noqa: E402
 
@@ -29,10 +32,6 @@ WINDOW = 'Cover Studio - Scan'
 BAR_H, STRIP_H = 84, 190        # the instruction bar above the camera, the captures below it
 GOLD, GREEN, WHITE = (1, 207, 255), (90, 220, 120), (255, 255, 255)
 MAX_PHOTO_SIDE = 2048           # loaded photos bigger than this are shrunk
-
-CONSENT = ('{name} has agreed to have their face scanned, and to it being used for their own designs.\n\n'
-           'They are not under 18, and not a celebrity or other public figure.\n\n'
-           'The pictures stay on this computer, and are deleted once their designs are done.')
 
 
 def ask_consent(name):
@@ -44,7 +43,7 @@ def ask_consent(name):
     def start():
         result['ok'] = True
         root.destroy()
-    Label(root, text=CONSENT.format(name=name), justify='left', wraplength=440).pack(padx=16, pady=(16, 8))
+    Label(root, text=CONSENT_TEXT.format(name=name), justify='left', wraplength=460).pack(padx=16, pady=(16, 8))
     start_button = Button(root, text='Start', width=12, state='disabled', command=start)
     Checkbutton(root, text='I confirm all of the above', variable=agreed,
                 command=lambda: start_button.config(state='normal' if agreed.get() else 'disabled')).pack(padx=16, anchor='w')
@@ -141,6 +140,19 @@ def save_from_photos(name):
          + (f'\n\nNot found: {", ".join(missing)}.' if missing else '') + ('\n\n' + '\n'.join(problems) if problems else ''))
     return folder
 
+def reconfirm(folder_name):
+    # show someone already scanned the current wording, and record it if they agree
+    folder = SUBJECTS_DIR / folder_name
+    if not (folder / 'subject.json').is_file():
+        tell('Not found', f'There is no saved subject called "{folder_name}" in subjects/.')
+        return
+    info, _ = load_subject(folder)
+    if has_current_consent(info):
+        tell('Already agreed', f'{info["name"]} has already agreed to the current wording.')
+    elif ask_consent(info['name']):
+        reconfirm_consent(folder)
+        tell('Recorded', f'Recorded that {info["name"]} agreed to the current wording.')
+
 def main():
     # Windows display scaling would blur the window; this keeps it sharp
     if sys.platform == 'win32':
@@ -148,6 +160,9 @@ def main():
             ctypes.windll.shcore.SetProcessDpiAwareness(2)
         except (AttributeError, OSError):
             pass
+    if len(sys.argv) == 3 and sys.argv[1] == '--reconfirm':
+        reconfirm(sys.argv[2])
+        return
     name = (ask_text('New scan', "The person's name:") or '').strip()
     if not name or not ask_consent(name):
         return
