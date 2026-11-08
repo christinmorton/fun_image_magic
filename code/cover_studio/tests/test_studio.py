@@ -10,8 +10,8 @@ import numpy as np
 SERVICE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SERVICE_DIR))
 
-from core.cover_layout import LAYOUTS                          # noqa: E402
-from desktop.studio import BAR_H, PREVIEW, LetteringScreen     # noqa: E402
+from core.cover_layout import LAYOUTS, STICKERS                         # noqa: E402
+from desktop.studio import BAR_H, PREVIEW, TAB_KEY, LetteringScreen     # noqa: E402
 
 
 class FakeAsk:
@@ -33,7 +33,7 @@ class TestLetteringScreen(unittest.TestCase):
         screen = LetteringScreen(ask=ask)
         screen.handle_key(ord('n'))
         screen.handle_key(ord('f'))
-        screen.handle_key(ord('k'))
+        screen.handle_key(ord('e'))
         screen.handle_key(ord('t'))                                  # cancelled: the title stays
         self.assertEqual(screen.words.name, 'LIL RAY')
         self.assertEqual(screen.words.featuring, ('Dre', 'Mama Jo', 'Smoke'))
@@ -48,22 +48,39 @@ class TestLetteringScreen(unittest.TestCase):
         self.assertNotEqual(screen.styles['name'], LAYOUTS[first].styles['name'])
         screen.handle_key(ord('l'))
         self.assertNotEqual(screen.layout, first)
-        self.assertEqual(screen.styles, LAYOUTS[screen.layout].styles)   # a new layout brings its own styles
+        self.assertEqual(screen.styles['name'], LAYOUTS[screen.layout].styles['name'])   # a new layout brings
+        self.assertEqual(screen.styles['title'], LAYOUTS[screen.layout].styles['title'])  # its own styles
         self.assertEqual(LAYOUTS[first].styles['name'], 'gold')          # ...and the old one wasn't changed
         before = screen.cover().copy()
         screen.handle_key(ord('r'))
         self.assertEqual(screen.seed, 2)
         self.assertFalse(np.array_equal(before, screen.cover()))         # the cover is redrawn
 
-    def test_finish_key_cycles_and_changes_the_cover(self):
+    def test_finish_for_all_parts_or_one(self):
         screen = LetteringScreen()
-        self.assertEqual(screen.finish, 'print')                         # aged by default
+        self.assertEqual(set(screen.finishes.values()), {'print'})       # aged by default
         aged = screen.cover().copy()
-        screen.handle_key(ord('a'))
-        self.assertEqual(screen.finish, 'vhs')
-        screen.handle_key(ord('a'))
-        self.assertEqual(screen.finish, 'clean')
+        screen.handle_key(ord('a'))                                       # part "all"
+        self.assertEqual(set(screen.finishes.values()), {'vhs'})
         self.assertFalse(np.array_equal(aged, screen.cover()))
+        screen.handle_key(TAB_KEY)                                        # part "name"
+        self.assertEqual(screen.part, 'name')
+        screen.handle_key(ord('a'))
+        self.assertEqual(screen.finishes['name'], 'clean')
+        self.assertEqual(screen.finishes['title'], 'vhs')                 # the other parts keep theirs
+
+    def test_sticker_key_cycles_designs_and_none(self):
+        screen = LetteringScreen()
+        self.assertEqual(screen.words.sticker, ('CERTIFIED', 'HOOD CLASSIC'))
+        seen = []
+        for _ in STICKERS:
+            screen.handle_key(ord('k'))
+            seen.append((screen.words.sticker, screen.styles['sticker']))
+        self.assertIn(((), 'badge'), seen)                                # no sticker
+        self.assertEqual({look for _, look in seen}, {'badge', 'stamp', 'hazard'})
+        self.assertEqual(seen[-1], (('CERTIFIED', 'HOOD CLASSIC'), 'badge'))   # round to the start
+        screen.handle_key(ord('l'))
+        self.assertEqual(screen.styles['sticker'], 'badge')               # kept when the layout changes
 
     def test_quit_save_and_nothing(self):
         screen = LetteringScreen()

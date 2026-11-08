@@ -19,18 +19,20 @@ SERVICE_DIR = Path(__file__).resolve().parent.parent
 if str(SERVICE_DIR) not in sys.path:
     sys.path.insert(0, str(SERVICE_DIR))
 
-from core.cover_layout import (LAYOUTS, CoverWords, apply_lettering, draw_cover_lettering,   # noqa: E402
-                               placeholder, square_crop)
+from core.cover_layout import (LAYOUTS, PIECES, STICKERS, CoverWords, apply_lettering,      # noqa: E402
+                               draw_cover_lettering, placeholder, square_crop)
 from core.designs import save_lettering                                                      # noqa: E402
-from core.finish import FINISHES, age                                                        # noqa: E402
+from core.finish import FINISHES                                                             # noqa: E402
 from core.lettering import TREATMENTS                                                        # noqa: E402
 from desktop.sources import choose_image_file, load_image                                    # noqa: E402
 
 WINDOW = 'Cover Studio'
 PREVIEW = 720              # the cover on screen, in pixels
-BAR_H = 112                # the dark bar above it, with the settings and keys
+BAR_H = 138                # the dark bar above it, with the settings and keys
 LAYOUT_KEYS = list(LAYOUTS)
 STYLE_NAMES = list(TREATMENTS)
+PARTS = ['all', 'name', 'title', 'presents', 'featuring', 'sticker']     # what Tab picks for A to age
+TAB_KEY = 9
 GOLD = (1, 207, 255)
 
 
@@ -77,7 +79,7 @@ FIELDS = {
           str, str.strip),
     'f': ('featuring', 'Featuring', 'Names, separated by commas (leave empty for none):',
           ', '.join, lambda text: tuple(n.strip() for n in text.split(',') if n.strip())),
-    'k': ('sticker', 'Sticker', 'The sticker\'s lines, separated by "/" (leave empty for none):',
+    'e': ('sticker', 'Sticker words', 'The sticker\'s lines, separated by "/" (leave empty for none):',
           ' / '.join, lambda text: tuple(line.strip() for line in text.split('/') if line.strip())),
 }
 
@@ -85,11 +87,14 @@ FIELDS = {
 class LetteringScreen:
     # everything on the lettering screen; no windows here, so it can be tested
     def __init__(self, ask=ask_text):
-        self.words = CoverWords(name='BIG MIKE', title='BOSS LIFE')
+        self.sticker = 1                     # index into STICKERS: Hood Classic
+        _, lines, look = STICKERS[self.sticker]
+        self.words = CoverWords(name='BIG MIKE', title='BOSS LIFE', sticker=lines)
         self.layout = LAYOUT_KEYS[0]
-        self.styles = dict(LAYOUTS[self.layout].styles)
+        self.styles = {**LAYOUTS[self.layout].styles, 'sticker': look}
         self.seed = 1
-        self.finish = 'print'                # aged like a 90s CD booklet (see core/finish.py)
+        self.finishes = {piece: 'print' for piece in PIECES}    # each part aged like a 90s CD booklet
+        self.part = 'all'                    # what A changes the finish of (Tab picks)
         self.picture = None                  # the BGR picture behind the words (None = placeholder)
         self.ask = ask                       # how to ask for text (a dialog; replaced in tests)
         self.message, self.message_until = '', 0.0
@@ -97,15 +102,16 @@ class LetteringScreen:
         self._cover = (None, None)
 
     def settings(self):
-        return (repr(self.words), self.layout, tuple(sorted(self.styles.items())), self.seed, self.finish)
+        return (repr(self.words), self.layout, tuple(sorted(self.styles.items())), self.seed,
+                tuple(sorted(self.finishes.items())))
 
     def cover(self):
         # the cover on screen: the picture with the (aged) lettering over it
         key = self.settings() + (id(self.picture),)
         if self._cover[0] != key:
             if self._layer[0] != self.settings():
-                layer = draw_cover_lettering(self.words, self.layout, PREVIEW, self.styles, self.seed)
-                self._layer = (self.settings(), age(layer, self.finish, 1.0, self.seed))
+                self._layer = (self.settings(), draw_cover_lettering(self.words, self.layout, PREVIEW, self.styles,
+                                                                     self.seed, self.finishes))
             if self.picture is None:
                 picture = placeholder(PREVIEW, 4 if self.layout == 'crew_row' else 1)
             else:
@@ -118,15 +124,23 @@ class LetteringScreen:
         bar = np.full((BAR_H, PREVIEW, 3), 40, np.uint8)
         layout = LAYOUTS[self.layout]
         status = (f'{layout.name}   name: {self.styles["name"]}   title: {self.styles["title"]}   '
-                  f'finish: {self.finish}   look #{self.seed}')
+                  f'sticker: {STICKERS[self.sticker][0].lower()}   look #{self.seed}')
         showing_message = self.message and (now or time.time()) < self.message_until
-        cv2.putText(bar, self.message if showing_message else status, (14, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.65,
+        cv2.putText(bar, self.message if showing_message else status, (14, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
                     GOLD if showing_message else (255, 255, 255), 2, cv2.LINE_AA)
-        hints = ['N name   T title   P presents   F featuring   K sticker',
-                 'L layout   1 name style   2 title style   A aged finish   R reshuffle',
+        # each part's finish, with the part that A changes in gold
+        x = 14
+        for i, piece in enumerate(['finish:'] + PARTS[1:]):
+            text = piece if i == 0 else f'{piece} {self.finishes[piece]}'
+            chosen = i > 0 and self.part in ('all', piece)
+            cv2.putText(bar, text, (x, 56), cv2.FONT_HERSHEY_SIMPLEX, 0.5, GOLD if chosen else (200, 200, 200),
+                        2 if chosen else 1, cv2.LINE_AA)
+            x += cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0][0] + 14
+        hints = ['N name   T title   P presents   F featuring   E sticker words   K sticker',
+                 'L layout   1 name style   2 title style   TAB part   A finish   R reshuffle',
                  'U picture   B plain   S save print file   Q quit']
         for i, hint in enumerate(hints):
-            cv2.putText(bar, hint, (14, 58 + 22 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1, cv2.LINE_AA)
+            cv2.putText(bar, hint, (14, 84 + 22 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1, cv2.LINE_AA)
         return np.vstack([bar, self.cover()])
 
     def say(self, text, seconds=4):
@@ -142,6 +156,10 @@ class LetteringScreen:
         # one key press; returns 'quit', 'save' or None
         if key == -1:
             return None
+        if key & 0xFF == TAB_KEY:
+            self.part = next_in(PARTS, self.part)
+            self.say(f'A now changes the finish of: {self.part}')
+            return None
         k = chr(key & 0xFF).lower()
         if k == 'q':
             return 'quit'
@@ -151,15 +169,25 @@ class LetteringScreen:
             self.edit(k)
         elif k == 'l':
             self.layout = next_in(LAYOUT_KEYS, self.layout)
-            self.styles = dict(LAYOUTS[self.layout].styles)        # each layout starts with its own styles
+            # each layout starts with its own name and title styles; the sticker stays
+            self.styles = {**LAYOUTS[self.layout].styles, 'sticker': self.styles['sticker']}
             self.say(f'{LAYOUTS[self.layout].name} layout')
+        elif k == 'k':
+            self.sticker = (self.sticker + 1) % len(STICKERS)
+            name, lines, look = STICKERS[self.sticker]
+            self.words = replace(self.words, sticker=lines)
+            self.styles['sticker'] = look
+            self.say(f'Sticker: {name}' + ('   (E changes its words)' if lines else ''))
         elif k == '1':
             self.styles['name'] = next_in(STYLE_NAMES, self.styles['name'])
         elif k == '2':
             self.styles['title'] = next_in(STYLE_NAMES, self.styles['title'])
         elif k == 'a':
-            self.finish = next_in(FINISHES, self.finish)
-            self.say(f'Finish: {self.finish}')
+            parts = PIECES if self.part == 'all' else [self.part]
+            new = next_in(FINISHES, self.finishes[parts[-1]])
+            for piece in parts:
+                self.finishes[piece] = new
+            self.say(f'Finish of {self.part}: {new}')
         elif k == 'r':
             self.seed += 1                   # new sparkles, gems, burn marks and grain
         elif k == 'u':
@@ -174,7 +202,8 @@ class LetteringScreen:
         return None
 
     def save(self):
-        return save_lettering(self.words, self.layout, self.styles, self.seed, self.picture, finish=self.finish)
+        return save_lettering(self.words, self.layout, self.styles, self.seed, self.picture,
+                              finishes=self.finishes)
 
 
 def main():

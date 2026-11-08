@@ -29,8 +29,10 @@ work, but aren't part of this app's focus.
 - **Cover Studio lettering screen** (free, no AI): `.\.venv\Scripts\python.exe desktop\studio.py`.
   Type the words, pick a layout and styles, and press S to save the lettering as a
   print-size transparent PNG (3600 px square) in `designs\`, with a preview and a recipe
-  that remakes it. A cycles the aged finish (clean, print, VHS). The keys are shown at the
-  top of the window.
+  that remakes it. TAB picks a part (all, name, title, presents, featuring, sticker) and A
+  cycles its aged finish (clean, print, VHS). K cycles the sticker (none, Hood Classic,
+  Street Certified stamp, Warning) and E edits its words. The keys are shown at the top of
+  the window.
 - Desktop booth (from the template): `.\.venv\Scripts\python.exe desktop\app.py`
 - Lettering preview sheet (free, no AI):
   `.\.venv\Scripts\python.exe experiments\lettering_sheet.py "YOUR NAME"`, saved to
