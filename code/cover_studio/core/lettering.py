@@ -43,6 +43,7 @@ SCORCH = [(0.0, '#ffb02e'), (0.35, '#ff5a1a'), (0.7, '#c81e14'), (1.0, '#6e0b08'
 CHAR = hex_bgr('#1a0905')        # burnt patches on scorched metal
 STONE = hex_bgr('#a39a86')
 ICE_TINTS = [hex_bgr('#f4faff'), hex_bgr('#e1f0ff'), hex_bgr('#eee8ff'), hex_bgr('#fffdf2')]   # gems: white, icy blue, violet, warm
+FIRE = [hex_bgr('#4fc3ff'), hex_bgr('#ff9a3c'), hex_bgr('#ff5fd2'), hex_bgr('#7dff8a')]   # rainbow flashes in cut stones
 
 
 # --- the words as a mask -------------------------------------------------------------
@@ -156,28 +157,56 @@ def sparkles(bgr, alpha, mask, count, size, rng):
     stars = np.clip(np.maximum(stars, soften(stars, size * 0.025) * 1.6), 0, 1)
     return over(bgr, alpha, WHITE, stars)
 
+LIGHT_ANGLE = np.radians(-135)      # light from the top left (image y points down)
+
+def cut_stone(bgr, cover, cx, cy, r, rng):
+    # one brilliant-cut stone seen from above: an octagonal table (top face) ringed by eight
+    # facets. Each facet is bright or dark depending on whether it faces the light, plus
+    # some chance, which gives the hard black-and-white sparkle of real stones
+    turn = rng.uniform(0, np.pi / 4)
+    angles = turn + np.arange(9) * np.pi / 4
+    girdle = np.stack([cx + r * np.cos(angles), cy + r * np.sin(angles)], axis=1)
+    table = np.stack([cx + 0.5 * r * np.cos(angles), cy + 0.5 * r * np.sin(angles)], axis=1)
+    to_int = lambda pts: np.round(pts * 16).astype(np.int32)          # 4 bits of sub-pixel precision
+    tint = np.array(ICE_TINTS[rng.integers(len(ICE_TINTS))], np.float32)
+    for k in range(8):
+        facing = np.cos(turn + (k + 0.5) * np.pi / 4 - LIGHT_ANGLE)
+        bright = float(np.clip(0.68 + 0.42 * facing + rng.normal(0, 0.25), 0.05, 1.0)) ** 1.15
+        colour = tint * bright
+        if rng.random() < 0.025:                                       # a rare flash of rainbow "fire"
+            colour = (np.array(FIRE[rng.integers(len(FIRE))], np.float32) * 0.55 + tint * 0.45) * max(bright, 0.75)
+        facet = np.array([table[k], table[k + 1], girdle[k + 1], girdle[k]])
+        cv2.fillPoly(bgr, [to_int(facet)], colour.tolist(), cv2.LINE_AA, shift=4)
+    cv2.fillPoly(bgr, [to_int(table[:8])], (tint * rng.uniform(0.55, 0.98)).tolist(), cv2.LINE_AA, shift=4)
+    cv2.polylines(bgr, [to_int(girdle[:8])], True, (38, 36, 36), max(1, int(r * 0.07)), cv2.LINE_AA, shift=4)
+    cv2.fillPoly(cover, [to_int(girdle[:8])], 1.0, cv2.LINE_AA, shift=4)
+
 def gems(mask, size, rng):
-    # rows of small round diamonds packed inside the letters: (colours, coverage)
+    # cut stones packed into the letters like pavé jewellery, big ones with small ones in
+    # the gaps between them: (colours, coverage, a few stone centres for glints)
     h, w = mask.shape
-    gap = max(5.0, size * 0.11)
-    r = gap * 0.47
+    gap = max(6.0, size * 0.105)
+    r = gap * 0.5
     bgr, cover = np.zeros((h, w, 3), np.float32), np.zeros((h, w), np.float32)
-    point = lambda px, py: (int(round(px)), int(round(py)))
+    glints = []
     for row, y in enumerate(np.arange(gap / 2, h, gap * 0.866)):
         for x in np.arange(gap / 2 + (gap / 2 if row % 2 else 0), w, gap):
             if mask[int(y), int(x)] < 0.5:
                 continue
-            tint = ICE_TINTS[rng.integers(len(ICE_TINTS))]
-            bright = rng.uniform(0.82, 1.0)
-            colour = tuple(c * bright for c in tint)
-            # a darker stone, then a bright one nudged up-left over it: the dark crescent
-            # left at the bottom right reads as a cut facet
-            cv2.circle(bgr, point(x, y), int(r), tuple(c * 0.55 for c in colour), -1, cv2.LINE_AA)
-            cv2.circle(bgr, point(x - r * 0.12, y - r * 0.12), int(r * 0.84), colour, -1, cv2.LINE_AA)
-            cv2.circle(cover, point(x, y), int(r), 1.0, -1, cv2.LINE_AA)
-            cv2.circle(bgr, point(x, y), int(r), (70, 66, 66), max(1, int(r * 0.12)), cv2.LINE_AA)  # setting
-            cv2.circle(bgr, point(x - r * 0.32, y - r * 0.32), max(1, int(r * 0.26)), WHITE, -1, cv2.LINE_AA)
-    return bgr, cover
+            cut_stone(bgr, cover, x, y, r * rng.uniform(0.9, 1.0), rng)
+            if rng.random() < 0.07:
+                glints.append((x, y))
+            # a small stone in the gap below and to the right of each big one
+            sx, sy = x + gap / 2, y + gap * 0.289
+            if 0 <= int(sy) < h and 0 <= int(sx) < w and mask[int(sy), int(sx)] > 0.5:
+                cut_stone(bgr, cover, sx, sy, r * 0.27, rng)
+    return bgr, cover, glints
+
+def bloom(bgr, size):
+    # the brightest spots glow a little into their surroundings, like light on a lens
+    bright = np.clip((bgr.max(axis=2) - 215) / 40, 0, 1)
+    halo = soften(bright, max(1.0, size * 0.025))
+    return bgr + (255 - bgr) * (halo[..., None] * 0.55)
 
 
 # --- the treatments ------------------------------------------------------------------
@@ -220,11 +249,18 @@ def ice(text, size, seed=0):
     bgr, alpha = over(bgr, alpha, BLACK, soften(shifted(grow(mask, edge), size * 0.04, size * 0.05), size * 0.03) * 0.6)
     bgr, alpha = over(bgr, alpha, WHITE, glow(mask, edge * 1.5, size * 0.1, 0.9))
     bgr, alpha = over(bgr, alpha, BLACK, grow(mask, edge))
-    setting = shade(vertical_gradient(mask, SILVER), bevel(mask, size * 0.06), 0.5, 0.6)
-    stones, cover = gems(mask, size, rng)
+    setting = shade(vertical_gradient(mask, SILVER), bevel(mask, size * 0.06), 0.5, 0.6) * 0.7
+    stones, cover, glints = gems(mask, size, rng)
     fill = setting * (1 - cover[..., None]) + stones * cover[..., None]
-    bgr, alpha = over(bgr, alpha, fill, mask)
-    bgr, alpha = sparkles(bgr, alpha, mask, max(6, len(text) * 3 // 2), size, rng)
+    fill = shade(fill, bevel(mask, size * 0.05), 0.35, 0.25)        # the letters' edges still catch the light
+    bgr, alpha = over(bgr, alpha, bloom(fill, size), mask)
+    stars = np.zeros(mask.shape, np.float32)
+    for x, y in glints:                                              # small glints on a few stones
+        reach = size * rng.uniform(0.06, 0.12)
+        cv2.line(stars, (int(x - reach), int(y)), (int(x + reach), int(y)), 1.0, 1, cv2.LINE_AA)
+        cv2.line(stars, (int(x), int(y - reach)), (int(x), int(y + reach)), 1.0, 1, cv2.LINE_AA)
+    bgr, alpha = over(bgr, alpha, WHITE, np.clip(np.maximum(stars, soften(stars, size * 0.01) * 2), 0, 1))
+    bgr, alpha = sparkles(bgr, alpha, mask, max(4, len(text)), size, rng)
     return finish(bgr, alpha)
 
 def scorched(text, size, seed=0):
