@@ -35,6 +35,18 @@ class TestStyles(unittest.TestCase):
         self.assertIn('the reference photo is', one)
         self.assertIn('3 reference photos show the same person', three)
 
+    def test_clothing_and_jewellery_are_choices(self):
+        bare = build_prompt(NEW_ORLEANS, 'inferno', 3, clothing='white_tee')
+        self.assertIn('white tee', bare)
+        self.assertIn('no jewellery at all', bare)                       # otherwise the AI adds chains
+        dressed = build_prompt(NEW_ORLEANS, 'inferno', 3, clothing='fur_coat', jewellery=('rope_chain', 'pendant'),
+                               accessories=('sunglasses',))
+        self.assertIn('rope chain', dressed)
+        self.assertIn('no letters or logos', dressed)                    # the pendant
+        self.assertIn('sunglasses', dressed)
+        self.assertNotIn('no jewellery', dressed)
+        self.assertNotIn('They wear', build_prompt(NEW_ORLEANS, 'inferno', 3))   # no choices: the AI decides
+
     def test_extras_and_unknown_scenes(self):
         self.assertIn('gold rope chain', build_prompt(NEW_ORLEANS, 'boss_office', extras='They wear a gold rope chain.'))
         with self.assertRaises(ValueError):

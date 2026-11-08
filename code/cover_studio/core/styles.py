@@ -53,6 +53,43 @@ STYLES = {style.key: style for style in [NEW_ORLEANS]}
 KEEP_LIKENESS = ('Keep their face, skin tone, hair, facial hair and features exactly as in the photos, so '
                  'they are clearly recognisable.')
 
+# what the person can wear (from the style guide). Jewellery is always a choice: without
+# it the AI adds gold chains on its own. Grills and sunglasses change how someone looks,
+# so they're opt-in
+CLOTHING = {
+    'gold_silk': 'a patterned gold and black silk shirt, open at the collar',
+    'white_tee': 'a crisp oversized white tee',
+    'white_shirt': 'an oversized white button-up shirt',
+    'camo': 'a camouflage jacket',
+    'tracksuit': 'a velour tracksuit',
+    'fur_coat': 'a long fur coat over a black shirt',
+    'own': 'the same clothes as in the photos',
+}
+JEWELLERY = {
+    'rope_chain': 'a thick gold rope chain',
+    'link_chain': 'a big gold link chain',
+    'pendant': 'a large iced-out pendant in a simple star shape, with no letters or logos',
+    'rings': 'gold rings on several fingers',
+    'watch': 'a big iced-out watch',
+    'grills': 'gold teeth (grills) in a slight smile',
+}
+ACCESSORIES = {
+    'sunglasses': 'dark sunglasses',
+    'bandana': 'a bandana tied around the head',
+    'durag': 'a silk du-rag',
+}
+
+
+def wardrobe(clothing='gold_silk', jewellery=(), accessories=()):
+    # the clothing, jewellery and accessories sentences of a prompt
+    sentences = [f'They wear {CLOTHING[clothing]}.']
+    pieces = [JEWELLERY[j] for j in jewellery] + [ACCESSORIES[a] for a in accessories]
+    if pieces:
+        sentences.append('They wear ' + (', '.join(pieces[:-1]) + ' and ' + pieces[-1] if len(pieces) > 1 else pieces[0]) + '.')
+    if not jewellery:
+        sentences.append('They wear no jewellery at all: no chains, rings or watches.')
+    return ' '.join(sentences)
+
 
 def person(references):
     # how to use the reference photos: one photo, or the same person from several angles
@@ -64,12 +101,15 @@ def person(references):
     return (f'{intro} is the main figure, waist-up, in the centre, facing the viewer with a confident '
             f'expression. {KEEP_LIKENESS}')
 
-def build_prompt(style, scene, references=1, extras=''):
+def build_prompt(style, scene, references=1, extras='', clothing=None, jewellery=(), accessories=()):
     # the full prompt for one scene of a style, for `references` photos of the person.
-    # extras adds clothing or jewellery choices, e.g. 'They wear a gold rope chain.'
+    # clothing / jewellery / accessories are keys of CLOTHING, JEWELLERY and ACCESSORIES
+    # (with clothing=None the AI chooses, as in the likeness test); extras adds any other
+    # sentence, e.g. 'They hold a microphone.'
     if isinstance(style, str):
         style = STYLES[style]
     if scene not in style.scenes:
         raise ValueError(f'unknown scene "{scene}"; use one of {list(style.scenes)}')
-    parts = [style.base, style.scenes[scene][1], person(references), extras.strip(), style.layout_space]
+    worn = wardrobe(clothing, jewellery, accessories) if clothing else ''
+    parts = [style.base, style.scenes[scene][1], person(references), worn, extras.strip(), style.layout_space]
     return ' '.join(part for part in parts if part)
