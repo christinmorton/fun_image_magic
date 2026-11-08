@@ -15,25 +15,13 @@ import numpy as np
 SERVICE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SERVICE_DIR))
 
-from core.cover_layout import LAYOUTS, CoverWords, apply_lettering, draw_cover_lettering   # noqa: E402
+from core.cover_layout import (LAYOUTS, CoverWords, apply_lettering, draw_cover_lettering,   # noqa: E402
+                               placeholder)
 
 OUTPUT_DIR = Path(__file__).resolve().parent / 'output'
 SIZE = 900          # each cover, in pixels
 
 CREW = ('Lil Ray', 'Big Tee', 'Dre', 'Mama Jo', 'Cousin Pookie', 'Lady K', 'Smoke', 'Uncle Ray', 'Nita')
-
-
-def placeholder(size, people=1):
-    # a dark-red-to-orange background with grey silhouettes where the people would stand
-    t = np.linspace(0, 1, size)[:, None, None]
-    img = np.repeat((np.array([20, 30, 110]) * (1 - t) + np.array([30, 140, 255]) * t).astype(np.uint8), size, axis=1)
-    for i in range(people):
-        cx = int(size * (i + 1) / (people + 1))
-        scale = 1.0 if people == 1 else 0.6
-        cv2.ellipse(img, (cx, int(size * 0.62)), (int(size * 0.2 * scale), int(size * 0.28 * scale)), 0, 180, 360,
-                    (70, 70, 70), -1, cv2.LINE_AA)
-        cv2.circle(img, (cx, int(size * (0.4 if people == 1 else 0.48))), int(size * 0.11 * scale), (90, 90, 90), -1, cv2.LINE_AA)
-    return img
 
 
 def main():

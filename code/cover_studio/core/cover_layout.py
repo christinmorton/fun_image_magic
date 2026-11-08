@@ -157,3 +157,24 @@ def apply_lettering(picture, lettering):
         picture = cv2.resize(picture, (lettering.shape[1], lettering.shape[0]), interpolation=cv2.INTER_AREA)
     a = lettering[..., 3:] / 255.0
     return (lettering[..., :3] * a + picture * (1 - a)).astype(np.uint8)
+
+def square_crop(img):
+    # the biggest square from the middle of a picture (covers are square)
+    h, w = img.shape[:2]
+    side = min(h, w)
+    y, x = (h - side) // 2, (w - side) // 2
+    return img[y:y + side, x:x + side]
+
+def placeholder(size, people=1):
+    # a stand-in picture until there's real artwork: a dark-red-to-orange background with
+    # grey silhouettes where the people would stand
+    t = np.linspace(0, 1, size)[:, None, None]
+    img = np.repeat((np.array([20, 30, 110]) * (1 - t) + np.array([30, 140, 255]) * t).astype(np.uint8), size, axis=1)
+    scale = 1.0 if people == 1 else 0.6
+    for i in range(people):
+        cx = int(size * (i + 1) / (people + 1))
+        cv2.ellipse(img, (cx, int(size * 0.62)), (int(size * 0.2 * scale), int(size * 0.28 * scale)), 0, 180, 360,
+                    (70, 70, 70), -1, cv2.LINE_AA)
+        cv2.circle(img, (cx, int(size * (0.4 if people == 1 else 0.48))), int(size * 0.11 * scale), (90, 90, 90),
+                   -1, cv2.LINE_AA)
+    return img
