@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Draws every lettering treatment on a dark background and on a fiery one, so they can be
-# compared by eye. Free to run: no AI. From the cover_studio folder:
+# Draws every lettering treatment clean on a dark background, then aged with the "print"
+# and "vhs" finishes on a fiery one, so they can be compared by eye. Free to run: no AI.
+# From the cover_studio folder:
 #   .\.venv\Scripts\python.exe experiments\lettering_sheet.py ["YOUR NAME"]
 # The sheet is saved to experiments/output/lettering_sheet.png.
 import sys
@@ -14,6 +15,7 @@ import numpy as np
 SERVICE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SERVICE_DIR))
 
+from core.finish import age                           # noqa: E402
 from core.lettering import TREATMENTS, draw_words     # noqa: E402
 
 OUTPUT_DIR = Path(__file__).resolve().parent / 'output'
@@ -46,7 +48,8 @@ def main():
         print(f'{name:9} {words.shape[1]}x{words.shape[0]}  {(time.perf_counter() - start) * 1000:.0f} ms')
         w, h = words.shape[1] + 40, words.shape[0] + 20
         dark, fire = backgrounds(w, h)
-        row = np.hstack([lay_over(dark, words), lay_over(fire, words)])
+        row = np.hstack([lay_over(dark, words), lay_over(fire, age(words, 'print', seed=1)),
+                         lay_over(fire, age(words, 'vhs', seed=1))])
         cv2.putText(row, name, (12, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), 2, cv2.LINE_AA)
         rows.append(row)
     width = max(r.shape[1] for r in rows)
