@@ -33,6 +33,10 @@ work, but aren't part of this app's focus.
   cycles its aged finish (clean, print, VHS). K cycles the sticker (none, Hood Classic,
   Street Certified stamp, Warning) and E edits its words. The keys are shown at the top of
   the window.
+- **Guided face scan** (free, no AI): `.\.venv\Scripts\python.exe desktop\scan.py`. Asks for
+  the person's name and permission, then guides them through three angles with the webcam
+  (straight on, a three-quarter turn to their left, then to their right), capturing each
+  automatically. S saves them to `subjects\<name>\`; P loads photos instead.
 - Desktop booth (from the template): `.\.venv\Scripts\python.exe desktop\app.py`
 - Lettering preview sheet (free, no AI):
   `.\.venv\Scripts\python.exe experiments\lettering_sheet.py "YOUR NAME"`, saved to
