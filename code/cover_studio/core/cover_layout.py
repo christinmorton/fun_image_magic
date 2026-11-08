@@ -1,0 +1,159 @@
+# cover_layout: where the words go on a square cover. A layout puts each text piece (the
+# presents line, name, featuring list, sticker and title) in a box measured in fractions of
+# the cover, so one layout works at preview size and at print size. Words are drawn at
+# their final size to fit their box (never stretched), into a transparent layer the size
+# of the cover that is laid over the artwork. Layouts follow docs/merch-styles/new-orleans.md
+# and keep the top and bottom fifths for the name and title, where the artwork is plain.
+from dataclasses import dataclass, field
+
+import cv2
+import numpy as np
+
+from .lettering import FONT_OF, PAD, draw_words, featuring_list, finish, load_font, paste, plain, sticker
+
+PIECES = ['sticker', 'featuring', 'presents', 'title', 'name']     # drawing order: the name ends on top
+
+
+@dataclass(frozen=True)
+class Spot:
+    x: float                # the box's left edge, top edge, width and height, as fractions
+    y: float                # of the cover's size (0 = left/top, 1 = right/bottom)
+    w: float
+    h: float
+    align: str = 'center'   # 'left', 'center' or 'right' inside the box
+    bend: float = 0.0       # arch the words: + bows them up, - sags them (fraction of their height)
+    recede: float = 0.0     # perspective: the top is this much narrower than the bottom (0-1)
+
+
+@dataclass(frozen=True)
+class CoverLayout:
+    key: str
+    name: str
+    spots: dict                         # piece -> Spot (pieces without a spot aren't shown)
+    styles: dict                        # 'name' / 'title' -> a lettering treatment
+    heading: str = 'Featuring:'         # above the featuring list ('' for none)
+
+
+@dataclass
+class CoverWords:
+    # everything written on one cover; empty pieces are simply left out
+    name: str
+    title: str = ''
+    presents: str = ''
+    featuring: tuple = ()
+    sticker: tuple = ('CERTIFIED', 'HOOD CLASSIC')
+
+
+LAYOUTS = {layout.key: layout for layout in [
+    CoverLayout('hero', 'Hero', {
+        'presents': Spot(0.2, 0.012, 0.6, 0.04),
+        'name': Spot(0.04, 0.07, 0.92, 0.14),
+        'featuring': Spot(0.70, 0.27, 0.28, 0.40),
+        'sticker': Spot(0.03, 0.65, 0.22, 0.10, align='left'),
+        'title': Spot(0.06, 0.81, 0.88, 0.16, bend=0.25),
+    }, {'name': 'gold', 'title': 'ice'}),
+    CoverLayout('head_in_the_sky', 'Head in the sky', {
+        'name': Spot(0.04, 0.025, 0.92, 0.16),
+        'featuring': Spot(0.02, 0.48, 0.27, 0.32),
+        'sticker': Spot(0.75, 0.65, 0.22, 0.10, align='right'),
+        'title': Spot(0.06, 0.82, 0.88, 0.15, bend=-0.3),
+    }, {'name': 'ice', 'title': 'gold'}),
+    CoverLayout('boss_desk', 'Boss desk', {
+        'name': Spot(0.03, 0.02, 0.5, 0.2, align='left'),
+        'presents': Spot(0.55, 0.025, 0.42, 0.045),
+        'featuring': Spot(0.55, 0.08, 0.42, 0.22),
+        'sticker': Spot(0.03, 0.62, 0.22, 0.10, align='left'),
+        'title': Spot(0.03, 0.84, 0.94, 0.13),
+    }, {'name': 'brush', 'title': 'serif'}),
+    CoverLayout('crew_row', 'Crew row', {
+        'name': Spot(0.06, 0.025, 0.88, 0.16, bend=0.2),
+        'sticker': Spot(0.03, 0.21, 0.2, 0.09, align='left'),
+        'featuring': Spot(0.12, 0.735, 0.76, 0.065),
+        'title': Spot(0.04, 0.80, 0.92, 0.17, recede=0.25),
+    }, {'name': 'gold', 'title': 'chrome'}, heading=''),
+]}
+
+
+def fit_size(text, font_name, width, height, stretch=1.0):
+    # the biggest font size (px) at which the words' ink fits width x height, allowing for
+    # a bend or other change that makes them `stretch` times taller
+    left, top, right, bottom = load_font(font_name, 100).getbbox(text)
+    return max(8, int(min(width * 100 / max(right - left, 1), height * 100 / max((bottom - top) * stretch, 1))))
+
+def arch(img, bend):
+    # bow the words up (bend > 0) or sag them (bend < 0) by |bend| times their height
+    h, w = img.shape[:2]
+    amount = abs(bend) * h
+    u = (np.arange(w, dtype=np.float32) - w / 2) / (w / 2)
+    lift = amount * (1 - u * u) if bend > 0 else amount * u * u
+    out_h = h + int(np.ceil(amount))
+    map_x = np.tile(np.arange(w, dtype=np.float32), (out_h, 1))
+    map_y = (np.arange(out_h, dtype=np.float32)[:, None] - amount + lift[None, :]).astype(np.float32)
+    return cv2.remap(img, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+
+def recede(img, amount):
+    # perspective, like words lying on the ground: the top is `amount` narrower than the bottom
+    h, w = img.shape[:2]
+    inset = w * amount / 2
+    corners = np.float32([[0, 0], [w, 0], [w, h], [0, h]])
+    moved = np.float32([[inset, 0], [w - inset, 0], [w, h], [0, h]])
+    return cv2.warpPerspective(img, cv2.getPerspectiveTransform(corners, moved), (w, h))
+
+def piece_image(piece, words, layout, styles, bw, bh, seed):
+    # one text piece drawn to fit a bw x bh box: (BGRA image, empty pixels at each side), or None
+    if piece in ('name', 'title'):
+        text = getattr(words, piece).strip()
+        if not text:
+            return None
+        spot, treatment = layout.spots[piece], styles[piece]
+        size = fit_size(text, FONT_OF[treatment], bw, bh, 1 + abs(spot.bend))
+        img = draw_words(text, treatment, size, seed)
+        if spot.bend:
+            img = arch(img, spot.bend)
+        if spot.recede:
+            img = recede(img, spot.recede)
+        return img, int(size * PAD)
+    if piece == 'presents':
+        text = words.presents.strip().upper()
+        if not text:
+            return None
+        size = fit_size(text, 'serif', bw, bh)
+        return plain(text, 'serif', size), int(size * PAD)
+    if piece == 'featuring':
+        if not any(n.strip() for n in words.featuring):
+            return None
+        return featuring_list(words.featuring, int(bw), int(bh), layout.heading), 0
+    if not any(line.strip() for line in words.sticker):
+        return None
+    img = sticker(words.sticker, int(bh))
+    if img.shape[1] > bw:                                   # long wording: a smaller sticker
+        img = sticker(words.sticker, max(int(bh * bw / img.shape[1]), 20))
+    return img, 0
+
+def draw_cover_lettering(words, layout, size, styles=None, seed=0):
+    # every piece of `words` placed by `layout` on a size x size cover, as a BGRA layer.
+    # styles can swap the treatment of the name or title, e.g. {'name': 'chrome'}
+    if isinstance(layout, str):
+        layout = LAYOUTS[layout]
+    styles = {**layout.styles, **(styles or {})}
+    bgr, alpha = np.zeros((size, size, 3), np.float32), np.zeros((size, size), np.float32)
+    for piece in PIECES:
+        spot = layout.spots.get(piece)
+        if spot is None:
+            continue
+        bx, by, bw, bh = spot.x * size, spot.y * size, spot.w * size, spot.h * size
+        drawn = piece_image(piece, words, layout, styles, bw, bh, seed)
+        if drawn is None:
+            continue
+        img, pad = drawn
+        ih, iw = img.shape[:2]
+        x = {'left': bx - pad, 'right': bx + bw - iw + pad}.get(spot.align, bx + (bw - iw) / 2)
+        bgr, alpha = paste(bgr, alpha, img, x, by + (bh - ih) / 2)
+    return finish(bgr, alpha)
+
+def apply_lettering(picture, lettering):
+    # lay the lettering layer over a BGR picture of the same size
+    if picture.shape[:2] != lettering.shape[:2]:
+        picture = cv2.resize(picture, (lettering.shape[1], lettering.shape[0]), interpolation=cv2.INTER_AREA)
+    a = lettering[..., 3:] / 255.0
+    return (lettering[..., :3] * a + picture * (1 - a)).astype(np.uint8)
