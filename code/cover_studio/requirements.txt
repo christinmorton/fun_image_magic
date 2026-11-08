@@ -4,6 +4,8 @@
 numpy==2.5.4
 mediapipe==1.2.0
 opencv-contrib-python==5.0.0.93
+# lettering (core/lettering.py): draws text with real TrueType fonts
+pillow==13.0.0
 # AI image generation (Google Gemini / Nano Banana); needs GEMINI_API_KEY in .env
 google-genai==2.34.0
 # the web API (api/): FastAPI, served by uvicorn
