@@ -19,6 +19,7 @@ FONTS = {                       # all licensed for commercial use (licences besi
     'narrow': 'Anton-Regular.ttf',            # narrow heavy sans: featuring lists
     'serif': 'AbrilFatface-Regular.ttf',      # heavy serif: presents lines, titles
 }
+PAD = 0.4           # empty space around drawn words, as a fraction of the font size (room for glows)
 
 
 def hex_bgr(code):
@@ -185,7 +186,7 @@ def gems(mask, size, rng):
 def gold(text, size, seed=0):
     # thick gold letters with a bevel, a black outline and a yellow glow
     rng = np.random.default_rng(seed)
-    mask = text_mask(text, 'slab', size, int(size * 0.4))
+    mask = text_mask(text, 'slab', size, int(size * PAD))
     edge = max(2, size * 0.05)
     bgr, alpha = blank(mask)
     bgr, alpha = over(bgr, alpha, BLACK, soften(shifted(grow(mask, edge), size * 0.04, size * 0.05), size * 0.03) * 0.7)
@@ -199,7 +200,7 @@ def gold(text, size, seed=0):
 def chrome(text, size, seed=0):
     # polished metal reflecting a horizon, with a strong bevel and a cool white glow
     rng = np.random.default_rng(seed)
-    mask = text_mask(text, 'slab', size, int(size * 0.4))
+    mask = text_mask(text, 'slab', size, int(size * PAD))
     edge = max(2, size * 0.045)
     bgr, alpha = blank(mask)
     bgr, alpha = over(bgr, alpha, BLACK, soften(shifted(grow(mask, edge), size * 0.04, size * 0.05), size * 0.03) * 0.7)
@@ -213,7 +214,7 @@ def chrome(text, size, seed=0):
 def ice(text, size, seed=0):
     # letters packed with diamonds on a silver setting, with a white glow and many glints
     rng = np.random.default_rng(seed)
-    mask = text_mask(text, 'slab', size, int(size * 0.4))
+    mask = text_mask(text, 'slab', size, int(size * PAD))
     edge = max(2, size * 0.045)
     bgr, alpha = blank(mask)
     bgr, alpha = over(bgr, alpha, BLACK, soften(shifted(grow(mask, edge), size * 0.04, size * 0.05), size * 0.03) * 0.6)
@@ -229,7 +230,7 @@ def ice(text, size, seed=0):
 def scorched(text, size, seed=0):
     # red-hot stencil letters with black burn marks and a yellow-orange glow
     rng = np.random.default_rng(seed)
-    mask = text_mask(text, 'stencil', size, int(size * 0.4))
+    mask = text_mask(text, 'stencil', size, int(size * PAD))
     edge = max(2, size * 0.035)
     bgr, alpha = blank(mask)
     bgr, alpha = over(bgr, alpha, GLOW_ORANGE, glow(mask, edge * 2, size * 0.14, 1.2))
@@ -244,7 +245,7 @@ def scorched(text, size, seed=0):
 def stone(text, size, seed=0):
     # rough, chiselled rock letters with chipped edges and a white glow behind
     rng = np.random.default_rng(seed)
-    mask = text_mask(text, 'block', size, int(size * 0.4))
+    mask = text_mask(text, 'block', size, int(size * PAD))
     near_edge = cv2.distanceTransform((mask > 0.5).astype(np.uint8), cv2.DIST_L2, 5) < size * 0.04
     chips = noise(mask.shape, size * 0.05, rng) < 0.35
     mask = soften(np.where(near_edge & chips, 0, mask).astype(np.float32), 0.7)
@@ -261,7 +262,7 @@ def stone(text, size, seed=0):
 def brush(text, size, seed=0):
     # one word in rough white brush strokes with a soft dark shadow
     rng = np.random.default_rng(seed)
-    mask = text_mask(text, 'brush', size, int(size * 0.3))
+    mask = text_mask(text, 'brush', size, int(size * PAD))
     bgr, alpha = blank(mask)
     bgr, alpha = over(bgr, alpha, BLACK, soften(shifted(mask, size * 0.03, size * 0.04), size * 0.04) * 0.75)
     dry = noise(mask.shape, size * 0.03, rng)
@@ -270,13 +271,149 @@ def brush(text, size, seed=0):
     return finish(bgr, alpha)
 
 
-TREATMENTS = {'ice': ice, 'gold': gold, 'chrome': chrome, 'scorched': scorched, 'stone': stone, 'brush': brush}
+def serif(text, size, seed=0):
+    # plain heavy white serif capitals with a soft shadow, for quieter titles
+    mask = text_mask(text, 'serif', size, int(size * PAD))
+    bgr, alpha = blank(mask)
+    bgr, alpha = over(bgr, alpha, BLACK, soften(shifted(mask, size * 0.03, size * 0.04), size * 0.04) * 0.8)
+    bgr, alpha = over(bgr, alpha, hex_bgr('#f4f1ea'), mask)
+    return finish(bgr, alpha)
+
+
+TREATMENTS = {'ice': ice, 'gold': gold, 'chrome': chrome, 'scorched': scorched, 'stone': stone,
+              'brush': brush, 'serif': serif}
+FONT_OF = {'ice': 'slab', 'gold': 'slab', 'chrome': 'slab', 'scorched': 'stencil', 'stone': 'block',
+           'brush': 'brush', 'serif': 'serif'}
 
 def draw_words(text, treatment, size, seed=0):
-    # the words in one treatment, as a BGRA image `size` px tall per line of capitals or so
+    # the words in one treatment, as a BGRA image: `size` px font, with PAD * size empty
+    # pixels all round
     text = text.strip()
     if not text:
         raise ValueError('nothing to write: the text is empty')
     if treatment not in TREATMENTS:
         raise ValueError(f'unknown treatment "{treatment}"; use one of {list(TREATMENTS)}')
     return TREATMENTS[treatment](text, int(size), seed)
+
+
+# --- supporting text: presents lines, featuring lists and the sticker -----------------
+
+def paste(bgr, alpha, img, x, y):
+    # lay a BGRA image over bgr/alpha with its top-left corner at (x, y), clipped at the edges
+    h, w = alpha.shape
+    ih, iw = img.shape[:2]
+    x, y = int(round(x)), int(round(y))
+    x0, y0, x1, y1 = max(x, 0), max(y, 0), min(x + iw, w), min(y + ih, h)
+    if x0 < x1 and y0 < y1:
+        part = img[y0 - y:y1 - y, x0 - x:x1 - x].astype(np.float32)
+        bgr[y0:y1, x0:x1], alpha[y0:y1, x0:x1] = over(bgr[y0:y1, x0:x1], alpha[y0:y1, x0:x1],
+                                                      part[..., :3], part[..., 3] / 255.0)
+    return bgr, alpha
+
+def plain(text, font_name, size, colour=WHITE, outline=BLACK):
+    # supporting text in one flat colour with a thin outline and a soft shadow, so it reads
+    # on a busy picture; PAD * size empty pixels all round, like draw_words()
+    mask = text_mask(text, font_name, int(size), int(size * PAD))
+    edge = max(1, size * 0.06)
+    bgr, alpha = blank(mask)
+    bgr, alpha = over(bgr, alpha, BLACK, soften(shifted(grow(mask, edge), size * 0.04, size * 0.05), size * 0.05) * 0.7)
+    bgr, alpha = over(bgr, alpha, outline, grow(mask, edge))
+    bgr, alpha = over(bgr, alpha, colour, mask)
+    return finish(bgr, alpha)
+
+def wrap(names, font, width):
+    # names joined with commas into lines no wider than `width` pixels (a name is never split)
+    lines, line = [], ''
+    for i, name in enumerate(names):
+        piece = name + (',' if i < len(names) - 1 else '')
+        trial = f'{line} {piece}' if line else piece
+        if line and font.getlength(trial) > width:
+            lines.append(line)
+            trial = piece
+        line = trial
+    return lines + [line]
+
+def even_lines(names, font, count, width):
+    # the names split into `count` lines of about the same width (the split with the
+    # smallest sum of squared line widths), each no wider than `width`; None if impossible
+    pieces = [name + (',' if i < len(names) - 1 else '') for i, name in enumerate(names)]
+    n, widths = len(pieces), {}
+    def line_width(i, j):
+        if (i, j) not in widths:
+            widths[(i, j)] = font.getlength(' '.join(pieces[i:j]))
+        return widths[(i, j)]
+    best = [[float('inf')] * (n + 1) for _ in range(count + 1)]
+    cut = [[0] * (n + 1) for _ in range(count + 1)]
+    best[0][0] = 0.0
+    for lines in range(1, count + 1):
+        for j in range(1, n + 1):
+            for i in range(lines - 1, j):
+                w = line_width(i, j)
+                if w <= width and best[lines - 1][i] + w * w < best[lines][j]:
+                    best[lines][j], cut[lines][j] = best[lines - 1][i] + w * w, i
+    if best[count][n] == float('inf'):
+        return None
+    out, j = [], n
+    for lines in range(count, 0, -1):
+        out.append(' '.join(pieces[cut[lines][j]:j]))
+        j = cut[lines][j]
+    return out[::-1]
+
+LIST_COLOURS = (WHITE, hex_bgr('#ff3b2f'))      # featuring lines alternate white and red
+
+def featuring_list(names, width, height, heading='Featuring:', colours=LIST_COLOURS):
+    # a crowded, centred column of names in narrow capitals, filling a width x height box
+    # (the text shrinks until everything fits), as a BGRA image of exactly that size
+    names = [n.strip().upper() for n in names if n.strip()]
+    if not names:
+        raise ValueError('the featuring list is empty')
+    for size in np.geomspace(max(height / 2.5, 8), 6, 60):
+        font = load_font('narrow', int(size))
+        lines = wrap(names, font, width * 0.94)
+        head = size * 0.85 if heading else 0
+        used = head * 1.25 + len(lines) * size * 1.18
+        if used <= height * 0.96 and max(font.getlength(line) for line in lines) <= width * 0.94:
+            break
+    if len(lines) > 1:
+        lines = even_lines(names, font, len(lines), width * 0.94) or lines
+    size = int(size)
+    bgr, alpha = np.zeros((height, width, 3), np.float32), np.zeros((height, width), np.float32)
+    y = (height - used) / 2
+    if heading:
+        img = plain(heading, 'brush', head, GLOW_YELLOW)
+        bgr, alpha = paste(bgr, alpha, img, (width - img.shape[1]) / 2, y - int(head * PAD))
+        y += head * 1.25
+    for i, line in enumerate(lines):
+        img = plain(line, 'narrow', size, colours[i % len(colours)])
+        bgr, alpha = paste(bgr, alpha, img, (width - img.shape[1]) / 2, y - int(size * PAD))
+        y += size * 1.18
+    return finish(bgr, alpha)
+
+def sticker(lines=('CERTIFIED', 'HOOD CLASSIC'), height=200):
+    # our own advisory-style badge, never the real Parental Advisory mark: a rounded black
+    # box with a gold border, the lines in white narrow capitals with the last one biggest
+    lines = [line.strip().upper() for line in lines if line.strip()]
+    if not lines:
+        raise ValueError('the sticker has no words')
+    border, margin = max(2, int(height * 0.05)), int(height * 0.13)
+    sizes = [height * 0.2] * (len(lines) - 1) + [height * 0.36]
+    scale = min(1.0, (height - 2 * margin) / (sum(sizes) * 1.12))     # many lines: shrink them all
+    masks = [text_mask(line, 'narrow', int(s * scale), 0) for line, s in zip(lines, sizes)]
+    width = max(m.shape[1] for m in masks) + 2 * margin
+    radius = int(height * 0.12)
+    box = np.zeros((height, width), np.uint8)
+    cv2.rectangle(box, (radius, radius), (width - 1 - radius, height - 1 - radius), 255, -1)
+    box = cv2.dilate(box, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * radius + 1, 2 * radius + 1)))
+    box = soften(box.astype(np.float32) / 255.0, 0.7)
+    inside = soften(cv2.erode(box, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * border + 1, 2 * border + 1))), 0.7)
+    bgr, alpha = blank(box)
+    bgr, alpha = over(bgr, alpha, hex_bgr('#e8b923'), box)          # gold border
+    bgr, alpha = over(bgr, alpha, hex_bgr('#0b0b0b'), inside)
+    ink = np.zeros_like(box)
+    y = (height - sum(m.shape[0] for m in masks) * 1.12) / 2
+    for m in masks:
+        x, top = int((width - m.shape[1]) / 2), int(round(y))
+        ink[top:top + m.shape[0], x:x + m.shape[1]] = np.maximum(ink[top:top + m.shape[0], x:x + m.shape[1]], m)
+        y += m.shape[0] * 1.12
+    bgr, alpha = over(bgr, alpha, WHITE, ink)
+    return finish(bgr, alpha)

@@ -10,9 +10,11 @@ import numpy as np
 SERVICE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SERVICE_DIR))
 
-from core.lettering import FONTS, FONTS_DIR, TREATMENTS, draw_words, text_mask   # noqa: E402
+from core.lettering import (FONTS, FONTS_DIR, TREATMENTS, draw_words, even_lines,   # noqa: E402
+                            featuring_list, load_font, plain, sticker, text_mask)
 
 SIZE = 60          # small, so the tests stay quick
+CREW = ['Lil Ray', 'Big Tee', 'Dre', 'Mama Jo', 'Cousin Pookie', 'Lady K', 'Smoke', 'Uncle Ray', 'Nita']
 
 
 class TestTreatments(unittest.TestCase):
@@ -48,6 +50,38 @@ class TestTreatments(unittest.TestCase):
             draw_words('   ', 'gold', SIZE)
         with self.assertRaises(ValueError):
             draw_words('BIG MIKE', 'neon', SIZE)
+
+
+class TestSupportingText(unittest.TestCase):
+    def test_featuring_list_fills_its_box(self):
+        for w, h in [(300, 260), (700, 50)]:            # a column, and a single strip
+            with self.subTest(box=(w, h)):
+                img = featuring_list(CREW, w, h)
+                self.assertEqual(img.shape, (h, w, 4))
+                self.assertGreater(img[..., 3].max(), 200)
+        with self.assertRaises(ValueError):
+            featuring_list(['  ', ''], 300, 200)
+
+    def test_even_lines_keep_every_name_and_avoid_a_lone_one(self):
+        font = load_font('narrow', 30)
+        lines = even_lines([n.upper() for n in CREW], font, 3, 10000)
+        self.assertEqual(len(lines), 3)
+        self.assertEqual(' '.join(lines).replace(',', '').split(), ' '.join(CREW).upper().split())
+        widths = [font.getlength(line) for line in lines]
+        self.assertLess(max(widths) / min(widths), 1.6)      # no line far shorter than the rest
+        self.assertIsNone(even_lines(['A VERY LONG NAME INDEED'], font, 1, 50))   # can't fit
+
+    def test_sticker_uses_its_own_wording(self):
+        two, three = sticker(('CERTIFIED', 'HOOD CLASSIC'), 120), sticker(('ONE', 'TWO', 'THREE'), 120)
+        self.assertEqual((two.shape[0], three.shape[0]), (120, 120))
+        self.assertEqual(two[60, two.shape[1] // 2, 3], 255)     # a solid box, not see-through
+        with self.assertRaises(ValueError):
+            sticker((' ',), 120)
+
+    def test_plain_text(self):
+        img = plain('BIG TEE PRESENTS', 'serif', 40)
+        self.assertEqual(img.shape[2], 4)
+        self.assertEqual(img[..., 3].max(), 255)
 
 
 class TestFonts(unittest.TestCase):
