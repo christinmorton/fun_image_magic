@@ -99,11 +99,13 @@ Other regions start once a New Orleans design can be scanned, made, lettered and
    and whether to keep the War zone scene.
 
 ### Phase 2: Lettering (no AI, no cost)
-9. **Effects in code** for the six New Orleans treatments: ice, gold bevel, chrome, scorched
+9. ✅ **Effects in code** for the six New Orleans treatments: ice, gold bevel, chrome, scorched
    metal, stone and brush script. Real fonts plus layered effects: gradient fills, bevels,
-   outlines, glows, shadows, textures and sparkles.
-10. **Fonts:** only fonts licensed for commercial use (for example Google Fonts under the
-    OFL), stored in `core/assets/fonts/` with their licences.
+   outlines, glows, shadows, textures and sparkles (`core/lettering.py`, 2026-11-08; preview
+   with `experiments/lettering_sheet.py`).
+10. ✅ **Fonts:** only fonts licensed for commercial use (for example Google Fonts under the
+    OFL), stored in `core/assets/fonts/` with their licences: Alfa Slab One, Black Ops One,
+    Bungee, Permanent Marker (Apache 2.0), Anton and Abril Fatface.
 11. **Text pieces:** the name, a "presents" line, the title, the featuring list and our own
     advisory-style sticker.
 12. **Layout templates:** the guide's four layouts (Hero, Head in the sky, Boss desk, Crew
