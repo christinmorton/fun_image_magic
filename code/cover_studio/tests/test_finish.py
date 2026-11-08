@@ -55,6 +55,11 @@ class TestFinish(unittest.TestCase):
         self.assertLess(aged[0, 0, 3], 10)
         self.assertGreater(aged[..., 3].max(), 200)
 
+    def test_parts_age_at_the_covers_scale(self):
+        # a small part of a big cover gets the big cover's grain, not grain for its own size
+        part = picture(200, 100)
+        self.assertFalse(np.array_equal(age(part, 'vhs', seed=1), age(part, 'vhs', seed=1, unit_size=3600)))
+
     def test_unknown_finish(self):
         with self.assertRaises(ValueError):
             age(picture(), 'sepia')

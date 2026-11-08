@@ -34,15 +34,18 @@ def low_quality(bgr, scale, quality):
     ok, data = cv2.imencode('.jpg', small, [cv2.IMWRITE_JPEG_QUALITY, int(quality)])
     return cv2.resize(cv2.imdecode(data, cv2.IMREAD_COLOR), (w, h), interpolation=cv2.INTER_CUBIC).astype(np.float32)
 
-def age(img, finish='print', strength=1.0, seed=0):
-    # img aged with one of FINISHES; strength 0 (none) to about 2 (heavy), 1 = the usual
+def age(img, finish='print', strength=1.0, seed=0, unit_size=None):
+    # img aged with one of FINISHES; strength 0 (none) to about 2 (heavy), 1 = the usual.
+    # Effects are measured against the picture, or against unit_size pixels if given: when
+    # the parts of a cover are aged one by one, give the cover's size so grain and scan
+    # lines match from part to part
     if finish not in FINISHES:
         raise ValueError(f'unknown finish "{finish}"; use one of {FINISHES}')
     if finish == 'clean' or strength <= 0:
         return img.copy()
     rng = np.random.default_rng(seed)
     h, w = img.shape[:2]
-    unit = max(h, w) / 1000.0                   # 1 for a 1000 px picture
+    unit = (unit_size or max(h, w)) / 1000.0    # 1 for a 1000 px picture
     vhs = finish == 'vhs'
     layer = img.shape[2] == 4
     bgr = img[..., :3].astype(np.float32)
@@ -91,8 +94,8 @@ def age(img, finish='print', strength=1.0, seed=0):
         streaks = np.clip(rng.normal(0, 45, (len(bgr[top:top + tall]), w)), 0, None) * strength
         bgr[top:top + tall] += cv2.blur(streaks.astype(np.float32), (max(3, int(15 * unit)), 1))[..., None]
 
-    # dust and specks, as on a scanned print
-    for _ in range(int(25 * strength * h * w / 1e6)):
+    # dust and specks, as on a scanned print (about 25 per 1000 x 1000 px)
+    for _ in range(int(25 * strength * h * w / (1e6 * unit * unit))):
         x, y = int(rng.integers(w)), int(rng.integers(h))
         colour = (235, 235, 230) if rng.random() < 0.6 else (25, 22, 20)
         cv2.circle(bgr, (x, y), max(1, int(unit * rng.uniform(0.4, 1.4))), colour, -1, cv2.LINE_AA)

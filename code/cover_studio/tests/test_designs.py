@@ -1,6 +1,7 @@
 # Checks for saving designs (no AI or windows needed).
 # Run from the cover_studio folder:
 #   .\.venv\Scripts\python.exe -m unittest discover tests
+import json
 import sys
 import tempfile
 import unittest
@@ -14,7 +15,6 @@ sys.path.insert(0, str(SERVICE_DIR))
 
 from core.cover_layout import CoverWords, draw_cover_lettering, square_crop   # noqa: E402
 from core.designs import load_recipe, save_lettering, slug                    # noqa: E402
-from core.finish import age                                                   # noqa: E402
 
 WORDS = CoverWords(name='Big Mike!', title='BOSS LIFE', featuring=('Dre', 'Mama Jo'))
 
@@ -22,19 +22,30 @@ WORDS = CoverWords(name='Big Mike!', title='BOSS LIFE', featuring=('Dre', 'Mama 
 class TestDesigns(unittest.TestCase):
     def test_save_and_remake(self):
         with tempfile.TemporaryDirectory() as tmp:
-            folder = save_lettering(WORDS, 'hero', {'name': 'chrome'}, seed=4, print_size=300, designs_dir=Path(tmp),
-                                    finish='print', strength=0.8)
+            folder = save_lettering(WORDS, 'hero', {'name': 'chrome', 'sticker': 'stamp'}, seed=4, print_size=300,
+                                    designs_dir=Path(tmp), finishes={'name': 'vhs', 'title': 'print'}, strength=0.8)
             self.assertTrue(folder.name.endswith('big-mike'))
             lettering = cv2.imread(str(folder / 'lettering.png'), cv2.IMREAD_UNCHANGED)
             self.assertEqual(lettering.shape, (300, 300, 4))
             self.assertEqual(cv2.imread(str(folder / 'preview.jpg')).shape[2], 3)
             r = load_recipe(folder)
-            self.assertEqual((r['words'], r['layout'], r['styles']['name'], r['seed'], r['finish'], r['strength']),
-                             (WORDS, 'hero', 'chrome', 4, 'print', 0.8))
+            self.assertEqual((r['words'], r['layout'], r['styles']['name'], r['styles']['sticker'], r['seed'],
+                              r['strength']), (WORDS, 'hero', 'chrome', 'stamp', 4, 0.8))
+            self.assertEqual((r['finishes']['name'], r['finishes']['title'], r['finishes']['featuring']),
+                             ('vhs', 'print', 'clean'))
             # the recipe draws exactly the same lettering again
-            again = age(draw_cover_lettering(r['words'], r['layout'], 300, r['styles'], r['seed']),
-                        r['finish'], r['strength'], r['seed'])
+            again = draw_cover_lettering(r['words'], r['layout'], 300, r['styles'], r['seed'], r['finishes'],
+                                         r['strength'])
             self.assertTrue(np.array_equal(again, lettering))
+
+    def test_an_older_recipe_with_one_finish(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = save_lettering(WORDS, 'hero', print_size=200, designs_dir=Path(tmp))
+            recipe = json.loads((folder / 'recipe.json').read_text(encoding='utf-8'))
+            del recipe['finishes']
+            recipe['finish'] = 'vhs'
+            (folder / 'recipe.json').write_text(json.dumps(recipe), encoding='utf-8')
+            self.assertEqual(set(load_recipe(folder)['finishes'].values()), {'vhs'})
             again = save_lettering(WORDS, 'hero', print_size=300, designs_dir=Path(tmp))
             self.assertNotEqual(again, folder)                      # never overwrites a design
 

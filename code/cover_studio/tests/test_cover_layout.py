@@ -10,7 +10,7 @@ import numpy as np
 SERVICE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SERVICE_DIR))
 
-from core.cover_layout import (LAYOUTS, PIECES, CoverWords, apply_lettering, arch,   # noqa: E402
+from core.cover_layout import (LAYOUTS, PIECES, STICKERS, CoverWords, apply_lettering, arch,   # noqa: E402
                                draw_cover_lettering, recede)
 from core.lettering import TREATMENTS                                                 # noqa: E402
 
@@ -70,6 +70,25 @@ class TestLayouts(unittest.TestCase):
                 self.assertLessEqual(ys.max(), bottom + 2)
                 self.assertLess(abs((ys.min() + ys.max()) / 2 - (top + bottom) / 2), 3)     # centred up and down
                 self.assertLess(abs((xs.min() + xs.max()) / 2 - (left + right) / 2), 3)     # and across
+
+    def test_a_finish_on_one_part_leaves_the_others_alone(self):
+        clean = draw_cover_lettering(WORDS, 'hero', SIZE, seed=1)
+        title_aged = draw_cover_lettering(WORDS, 'hero', SIZE, seed=1, finishes={'title': 'vhs'})
+        top, bottom = slice(0, int(SIZE * 0.22)), slice(int(SIZE * 0.8), SIZE)
+        self.assertTrue(np.array_equal(clean[top], title_aged[top]))          # the name is untouched
+        self.assertFalse(np.array_equal(clean[bottom], title_aged[bottom]))   # the title is aged
+
+    def test_every_sticker_fits_its_box(self):
+        spot = LAYOUTS['hero'].spots['sticker']
+        for _, lines, look in STICKERS[1:]:
+            with self.subTest(sticker=look):
+                layer = draw_cover_lettering(CoverWords(name='', sticker=lines), 'hero', SIZE, styles={'sticker': look})
+                ys, xs = np.where(layer[..., 3] > 40)
+                self.assertGreater(len(xs), 0)
+                self.assertGreaterEqual(xs.min(), spot.x * SIZE - 2)
+                self.assertLessEqual(xs.max(), (spot.x + spot.w) * SIZE + 2)
+                self.assertGreaterEqual(ys.min(), spot.y * SIZE - 2)
+                self.assertLessEqual(ys.max(), (spot.y + spot.h) * SIZE + 2)
 
     def test_styles_can_be_swapped(self):
         gold = draw_cover_lettering(WORDS, 'hero', SIZE)

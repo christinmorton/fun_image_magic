@@ -9,10 +9,20 @@ from dataclasses import dataclass, field
 import cv2
 import numpy as np
 
+from .finish import age
 from .lettering import (FONT_OF, PAD, draw_words, featuring_list, finish, load_font, paste, plain, sticker,
                         text_mask)
 
 PIECES = ['sticker', 'featuring', 'presents', 'title', 'name']     # drawing order: the name ends on top
+
+# ready-made stickers: (name, lines, style). The wording can be changed; never the real
+# Parental Advisory mark, which is a trademark
+STICKERS = [
+    ('No sticker', (), 'badge'),
+    ('Hood Classic', ('CERTIFIED', 'HOOD CLASSIC'), 'badge'),
+    ('Street Certified', ('STREET', 'CERTIFIED'), 'stamp'),
+    ('Warning', ('WARNING', 'TOO HOT FOR RADIO'), 'hazard'),
+]
 
 
 @dataclass(frozen=True)
@@ -156,17 +166,22 @@ def piece_image(piece, words, layout, styles, bw, bh, seed):
         return img, (0, 0, img.shape[1], img.shape[0])
     if not any(line.strip() for line in words.sticker):
         return None
-    img = sticker(words.sticker, int(bh))
-    if img.shape[1] > bw:                                   # long wording: a smaller sticker
-        img = sticker(words.sticker, max(int(bh * bw / img.shape[1]), 20))
+    style = styles.get('sticker', 'badge')
+    img = sticker(words.sticker, int(bh), style, seed)
+    fit = min(bw / img.shape[1], bh / img.shape[0])
+    if fit < 1:                                             # long wording or a tilt: a smaller sticker
+        img = sticker(words.sticker, max(int(bh * fit), 20), style, seed)
     return img, (0, 0, img.shape[1], img.shape[0])
 
-def draw_cover_lettering(words, layout, size, styles=None, seed=0):
+def draw_cover_lettering(words, layout, size, styles=None, seed=0, finishes=None, strength=1.0):
     # every piece of `words` placed by `layout` on a size x size cover, as a BGRA layer.
-    # styles can swap the treatment of the name or title, e.g. {'name': 'chrome'}
+    # styles can swap the treatment of the name or title, e.g. {'name': 'chrome'}, and
+    # choose the sticker's look, e.g. {'sticker': 'stamp'}. finishes ages each piece on
+    # its own, e.g. {'name': 'vhs', 'title': 'print'} (pieces left out stay clean)
     if isinstance(layout, str):
         layout = LAYOUTS[layout]
     styles = {**layout.styles, **(styles or {})}
+    finishes = finishes or {}
     bgr, alpha = np.zeros((size, size, 3), np.float32), np.zeros((size, size), np.float32)
     for piece in PIECES:
         spot = layout.spots.get(piece)
@@ -177,6 +192,8 @@ def draw_cover_lettering(words, layout, size, styles=None, seed=0):
         if drawn is None:
             continue
         img, (ix, iy, iw, ih) = drawn
+        if finishes.get(piece, 'clean') != 'clean':
+            img = age(img, finishes[piece], strength, seed + PIECES.index(piece), unit_size=size)
         x = {'left': bx - ix, 'right': bx + bw - ix - iw}.get(spot.align, bx + (bw - iw) / 2 - ix)
         bgr, alpha = paste(bgr, alpha, img, x, by + (bh - ih) / 2 - iy)
     return finish(bgr, alpha)
