@@ -27,6 +27,9 @@ work, but aren't part of this app's focus.
 - Tests: `.\.venv\Scripts\python.exe -m unittest discover tests`. MediaPipe's `W0000`
   warnings are normal.
 - Desktop booth (from the template): `.\.venv\Scripts\python.exe desktop\app.py`
+- Lettering preview sheet (free, no AI):
+  `.\.venv\Scripts\python.exe experiments\lettering_sheet.py "YOUR NAME"`, saved to
+  `experiments\output\lettering_sheet.png`
 
 ## Rules
 
