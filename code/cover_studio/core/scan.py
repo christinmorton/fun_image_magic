@@ -18,6 +18,10 @@ NOSE, FOREHEAD, CHIN, SIDE_A, SIDE_B = 1, 10, 152, 234, 454      # MediaPipe fac
 HOLD_SECONDS = 1.0          # how long a good, steady pose is held before it's captured
 STEADY = 4.0                # degrees the head may move during the hold (more = still turning)
 PAUSE_SECONDS = 1.2         # after a capture, "Got it!" shows this long before the next angle
+DROPOUT_GRACE = 0.4         # a hold survives the face going missing for this long (a turned face can flicker)
+# how sure the face finder must be: to pick up a face, and to keep following it from frame
+# to frame. MediaPipe's default (0.5) loses faces partway through a turn; lower keeps them
+FIND_CONFIDENCE, FOLLOW_CONFIDENCE = 0.4, 0.25
 MIN_SHARPNESS = 40.0        # detail in the face (see sharpness()); below this is blurry
 MIN_FACE, MAX_FACE = 0.3, 0.85        # face height, as a fraction of the picture's height (height,
                                       # not width: a face looks narrower as it turns, not shorter)
@@ -143,9 +147,11 @@ class Scanner:
         self.captures = {}              # angle key -> BGR picture
         self.front_level = None
         self.hold = None                # the current steady hold: started, first turn, best frame...
+        self.last_good = 0.0            # when the latest good frame of the hold was seen
         self.paused_until = 0.0         # after a capture, wait before the next angle
         self.message = ''
         self.turn = None                # the latest head turn seen (for the screen)
+        self.seen = False               # a single face is in the latest frame
         self.just_captured = None       # the key captured by the latest feed(), for a flash
 
     @property
@@ -178,6 +184,9 @@ class Scanner:
         if angle is None or self.clock() < self.paused_until:
             return
         shot = check_shot(frame, self.detect(frame))
+        self.seen = shot.found
+        if not shot.found and self.hold is not None and self.clock() - self.last_good <= DROPOUT_GRACE:
+            return                              # a moment's flicker: keep the hold going
         lost_while_turning = (not shot.found and self.turn is not None and angle.key != 'front'
                               and abs(self.turn) > abs(angle.high if angle.key == 'right' else angle.low) * 0.8)
         if shot.found:
@@ -198,6 +207,7 @@ class Scanner:
             self.hold, self.message = None, problems[0]
             return
         now = self.clock()
+        self.last_good = now
         if self.hold is None:
             self.hold = {'started': now, 'turn': shot.turn, 'sharpness': -1.0}
         if shot.sharpness > self.hold['sharpness']:              # keep only the sharpest frame so far
@@ -246,7 +256,8 @@ class FaceDetector:
         self.landmarker = vision.FaceLandmarker.create_from_options(vision.FaceLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=str(models_dir / 'face_landmarker.task')),
             running_mode=vision.RunningMode.IMAGE if still else vision.RunningMode.VIDEO,
-            num_faces=2, output_face_blendshapes=True))
+            num_faces=2, output_face_blendshapes=True, min_face_detection_confidence=FIND_CONFIDENCE,
+            min_face_presence_confidence=FOLLOW_CONFIDENCE, min_tracking_confidence=FOLLOW_CONFIDENCE))
 
     def __call__(self, frame):
         rgb = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))

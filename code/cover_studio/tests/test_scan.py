@@ -14,8 +14,9 @@ SERVICE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SERVICE_DIR))
 
 from core import MODELS_DIR                                                         # noqa: E402
-from core.scan import (CHIN, FOREHEAD, HOLD_SECONDS, NOSE, PAUSE_SECONDS, SIDE_A,   # noqa: E402
-                       SIDE_B, Face, FaceDetector, Scanner, check_shot, head_level, head_turn, sort_photos)
+from core.scan import (CHIN, DROPOUT_GRACE, FOREHEAD, HOLD_SECONDS, NOSE,           # noqa: E402
+                       PAUSE_SECONDS, SIDE_A, SIDE_B, Face, FaceDetector, Scanner, check_shot, head_level,
+                       head_turn, sort_photos)
 
 W, H = 640, 480
 
@@ -152,10 +153,28 @@ class TestScanner(unittest.TestCase):
         clock, detect = FakeClock(), FakeDetect(face(0))
         scanner = Scanner(detect, clock)
         hold(scanner, clock, busy_frame(), seconds=HOLD_SECONDS - 0.2)
-        detect.faces = []
+        detect.faces = [face(0, blink=0.9)]                                 # any problem but a lost face
         scanner.feed(busy_frame())
         self.assertEqual(scanner.progress, 0)
-        self.assertIn('No face', scanner.message)
+        self.assertIn('eyes open', scanner.message)
+
+    def test_a_short_flicker_keeps_the_hold_but_a_long_loss_does_not(self):
+        clock, detect = FakeClock(), FakeDetect(face(0))
+        scanner = Scanner(detect, clock)
+        hold(scanner, clock, busy_frame(), seconds=0.5)
+        detect.faces = []
+        hold(scanner, clock, busy_frame(), seconds=DROPOUT_GRACE - 0.2)    # gone for a moment
+        self.assertGreater(scanner.progress, 0)
+        self.assertFalse(scanner.seen)
+        detect.faces = [face(0)]
+        hold(scanner, clock, busy_frame(), seconds=0.3)
+        self.assertIn('front', scanner.captures)                            # the hold carried on
+        clock.now += PAUSE_SECONDS
+        detect.faces = [face(-35)]
+        hold(scanner, clock, busy_frame(), seconds=0.5)
+        detect.faces = []
+        hold(scanner, clock, busy_frame(), seconds=DROPOUT_GRACE + 0.2)    # gone too long
+        self.assertEqual(scanner.progress, 0)
 
     def test_turned_too_far_to_be_found(self):
         clock, detect = FakeClock(), FakeDetect(face(0))
@@ -164,6 +183,9 @@ class TestScanner(unittest.TestCase):
         detect.faces = [face(-50)]
         scanner.feed(busy_frame())
         detect.faces = []                                                   # turned out of sight
+        scanner.feed(busy_frame())
+        self.assertEqual(scanner.message, 'Hold it there...')               # a flicker, at first
+        clock.now += DROPOUT_GRACE + 0.1
         scanner.feed(busy_frame())
         self.assertEqual(scanner.message, 'Too far: turn back a little')
 
