@@ -113,8 +113,11 @@ Drawn by the app's lettering engine, never by the AI. Six treatments cover this 
 - **Presents line:** small serif capitals above the name, e.g. "BIG MIKE PRESENTS".
 - **Featuring list:** a column of names in a heavy, narrow sans-serif, alternating red and
   white or all white, separated by commas or bullets. Long and crowded is part of the look.
-- **Sticker:** our own advisory-style sticker in a box, with our own wording (for example
-  "CERTIFIED HOOD CLASSIC"). Never a copy of the real Parental Advisory mark.
+- **Sticker (optional):** one of our own advisory-style stickers, with any wording. Never a
+  copy of the real Parental Advisory mark. Three designs so far:
+  - **Hood Classic:** a black badge with a gold border ("CERTIFIED / HOOD CLASSIC")
+  - **Street Certified:** a tilted red rubber stamp with worn ink
+  - **Warning:** a yellow box with a black hazard-stripe border ("WARNING / TOO HOT FOR RADIO")
 
 **Effects shared by all:** star-shaped glints on corners and edges, a glow around every
 letter, and slight perspective or an arch on titles.

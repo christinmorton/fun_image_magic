@@ -131,6 +131,13 @@ Other regions start once a New Orleans design can be scanned, made, lettered and
   smeared colour, scan lines, wobble and tracking noise). The lettering screen starts on
   `print` and the A key cycles them; saved files and recipes include the finish. Once there
   is artwork, the same finish should age the whole cover together.
+- ✅ **A finish for each part:** the name, title, presents line, featuring list and sticker
+  can each be clean, print or VHS (Tab picks the part, A changes it), measured against the
+  whole cover so grain and scan lines match. Recipes record each part's finish.
+- ✅ **Sticker choices:** none, Hood Classic (black badge, gold border), Street Certified
+  (red rubber stamp) or Warning (yellow, hazard stripes), each with editable words. The
+  real Parental Advisory mark stays out: it's the RIAA's trademark. Also fixed: sticker
+  borders only showed at the corners.
 
 ### Phase 3: The guided scan (likeness)
 15. **Live guide:** MediaPipe's face landmarker in video mode, with head pose turned on,
