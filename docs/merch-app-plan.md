@@ -290,7 +290,10 @@ so treat these as low estimates.
   previews next to the user. See `docs/desktop-to-api-lessons.md`.
 - **Etsy and print-on-demand** (Printful or Printify) listings and ordering.
 - **Getting customers**, store-first or alongside Etsy: see `docs/merch-getting-customers.md`.
-- **More style packs**, once New Orleans works end to end: Memphis, Houston and Compton from the research, plus Atlanta,
+- **More style packs** (started 2026-11-08): guides for Memphis, Houston and Compton and LA
+  are written (`docs/merch-styles/`), and their **artwork** prompts are in the app (R on the
+  artwork screen). Still to build for them: their own lettering, layouts and finishes.
+  Later: Atlanta,
   Miami, Detroit and New York once their covers are collected (see the TODO in the
   research notes).
 - **A style model (LoRA)**, trained only on our own curated designs, if prompts alone
