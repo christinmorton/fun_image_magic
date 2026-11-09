@@ -39,6 +39,12 @@ work, but aren't part of this app's focus.
   automatically. S saves them to `subjects\<name>\`; P loads photos instead.
   Someone scanned before the current permission wording can be asked again with
   `desktop\scan.py --reconfirm <their folder>`.
+- **Artwork screen** (COSTS MONEY, always asked first): `.\.venv\Scripts\python.exe desktop\artwork.py`.
+  Pick a scanned person, then S scene, C clothes, J jewellery and extras; G makes four
+  previews (about $0.18), 1-4 picks one, F remakes it at 2K (about $0.06), and L sends it
+  to the lettering screen to finish the cover. Everything is saved in
+  `subjects\<name>\artwork\`. Spending is logged in `spending.json`, with a daily limit of
+  $2.00 (`COVER_STUDIO_DAILY_LIMIT_USD` in `.env` changes it).
 - **Likeness test** (COSTS MONEY with `--run`, about $0.18): sends a subject's photos to
   Gemini with two New Orleans scenes, once with the front photo and once with all angles.
   Without `--run` it's a free dry run that prints what it would send:
