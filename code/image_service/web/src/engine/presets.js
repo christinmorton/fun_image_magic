@@ -25,6 +25,9 @@ export const PRESET_NAMES = [
   'Mirror', 'Desert Sunset',
 ]
 
+// core/masks.py FOCUS_MODES: what happens to the background behind the person
+export const FOCUS_MODES = ['Off', 'Color Pop', 'Portrait Blur', 'Mask Preview']
+
 // presets that move parts of the picture around (core/filters.py MOVES_PIXELS): face
 // outlines would float where the face was, so the preview leaves them off
 export const MOVES_PIXELS = ['Pop Art', 'Mirror']
@@ -59,7 +62,8 @@ export function builtInCatalog() {
   return {
     presets: items(PRESET_NAMES),
     filters: items(KERNELS.map((k) => k.name)),
-    focus_modes: [], layouts: [], stickers: [], backgrounds: [], frames: [], mascots: [], props: [],
+    focus_modes: items(FOCUS_MODES),
+    layouts: [], stickers: [], backgrounds: [], frames: [], mascots: [], props: [],
     ai_presets: [], off: -1, look_defaults: { ...DEFAULT_LOOK },
   }
 }

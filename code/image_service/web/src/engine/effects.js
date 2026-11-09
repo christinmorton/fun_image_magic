@@ -1,22 +1,96 @@
 // effects: the live preview, drawn on the GPU with WebGL 2 so it keeps up with the camera.
-// It follows core/look.py's order: greyscale, the course filter, contrast and brightness
-// (pass 1), then the preset (pass 2). Each preset is a shader written to look like its
-// OpenCV version in core/filters.py; a few are close approximations, because OpenCV does
-// things a shader can't do in one pass (median blurs, histograms, painting). The service's
-// render of the captured photo is always the exact one.
+// It follows core/look.py's order:
+//   1. the scene: the camera frame, mirrored, with the background swapped behind the person
+//   2. the focus effect (colour pop, portrait blur, mask preview), if one is on
+//   3. greyscale, the course filter, contrast and brightness
+//   4. face stickers here instead, for presets that move the face (Pop Art, Mirror)
+//   5. the preset
+//   6. face stickers, the mascot and the frame on top
+// Each preset is a shader written to look like its OpenCV version in core/filters.py; a few
+// are close approximations, because OpenCV does things a shader can't do in one pass
+// (median blurs, histograms, painting). The service's render of the captured photo is
+// always the exact one.
 import { BRAND, KERNELS, hexToRgb } from './presets.js'
 
 const VERTEX = `#version 300 es
 in vec2 a_pos;
 void main() { gl_Position = vec4(a_pos, 0.0, 1.0); }`
 
-// pass 1: the camera frame (mirrored if asked) -> greyscale -> filter -> contrast/brightness.
-// Positions are in pixels with y up (gl_FragCoord), and frames are uploaded flipped to match.
-const ADJUST = `#version 300 es
+// Positions in the fragment shaders are pixels with y up (gl_FragCoord), and pictures are
+// uploaded flipped to match. The person mask follows the unmirrored camera, like the frame.
+const PERSON_MASK = `
+uniform sampler2D u_mask;
+// refine_mask's first step: under 0.3 is background, over 0.7 is the person
+float person(vec2 uv) { return clamp((texture(u_mask, uv).r - 0.3) / 0.4, 0.0, 1.0); }`
+
+// 1: the camera frame (mirrored if asked), with the background swapped (swap_background)
+const SCENE = `#version 300 es
 precision highp float;
 uniform sampler2D u_video;
+uniform sampler2D u_background;
 uniform vec2 u_size;
 uniform bool u_mirror;
+uniform bool u_swap;
+out vec4 outColor;
+${PERSON_MASK}
+
+void main() {
+  vec2 uv = gl_FragCoord.xy / u_size;
+  vec2 camera = u_mirror ? vec2(1.0 - uv.x, uv.y) : uv;
+  vec3 c = texture(u_video, camera).rgb;
+  // the background is stretched over the whole picture, and not mirrored
+  if (u_swap) c = mix(texture(u_background, uv).rgb, c, person(camera));
+  outColor = vec4(c, 1.0);
+}`
+
+// 2: the focus effects (core/masks.py): the person stays as they are, the background
+// turns grey, blurred, or a dark checkerboard
+const FOCUS = `#version 300 es
+precision highp float;
+uniform sampler2D u_image;      // the scene, with mipmaps for the blur
+uniform vec2 u_size;
+uniform bool u_mirror;
+uniform int u_mode;             // 1 colour pop, 2 portrait blur, 3 mask preview
+uniform float u_scale;
+out vec4 outColor;
+${PERSON_MASK}
+
+void main() {
+  vec2 p = gl_FragCoord.xy;
+  vec2 uv = p / u_size;
+  vec3 c = textureLod(u_image, uv, 0.0).rgb;
+  vec3 back;
+  if (u_mode == 1) {
+    back = vec3(dot(c, vec3(0.299, 0.587, 0.114)));
+  } else if (u_mode == 2) {
+    // a Gaussian blur with sigma = the long side / 80, read from a smaller mipmap level
+    float sigma = max(u_size.x, u_size.y) / 80.0;
+    float lod = log2(max(sigma / 3.0, 1.0));
+    vec3 sum = vec3(0.0);
+    float total = 0.0;
+    for (int j = -3; j <= 3; j++) for (int i = -3; i <= 3; i++) {
+      vec2 o = vec2(float(i), float(j)) * sigma / 2.0;
+      float w = exp(-dot(o, o) / (2.0 * sigma * sigma));
+      sum += w * textureLod(u_image, (p + o) / u_size, lod).rgb;
+      total += w;
+    }
+    back = sum / total;
+  } else {
+    // squares of 1/24 of the short side (at least 8 px of the service's photo), from the top left
+    float square = max(8.0 * u_scale, min(u_size.x, u_size.y) / 24.0);
+    vec2 q = floor(vec2(p.x, u_size.y - p.y) / square);
+    back = vec3(mod(q.x + q.y, 2.0) < 0.5 ? 40.0 / 255.0 : 70.0 / 255.0);
+  }
+  outColor = vec4(mix(back, c, person(u_mirror ? vec2(1.0 - uv.x, uv.y) : uv)), 1.0);
+}`
+
+const FOCUS_MODES = { 'Color Pop': 1, 'Portrait Blur': 2, 'Mask Preview': 3 }
+
+// 3: greyscale -> filter -> contrast/brightness
+const ADJUST = `#version 300 es
+precision highp float;
+uniform sampler2D u_image;
+uniform vec2 u_size;
 uniform bool u_gray;
 uniform float u_kernel[25];
 uniform float u_contrast;
@@ -24,9 +98,7 @@ uniform float u_brightness;     // -50 to 50, on the 0-255 scale (core: brightne
 out vec4 outColor;
 
 vec3 src(vec2 p) {
-  p = clamp(p, vec2(0.5), u_size - 0.5);
-  if (u_mirror) p.x = u_size.x - p.x;
-  vec3 c = texture(u_video, p / u_size).rgb;
+  vec3 c = textureLod(u_image, clamp(p, vec2(0.5), u_size - 0.5) / u_size, 0.0).rgb;
   return u_gray ? vec3(dot(c, vec3(0.299, 0.587, 0.114))) : c;
 }
 
@@ -42,7 +114,25 @@ void main() {
   outColor = vec4(clamp(c * u_contrast + u_brightness / 255.0, 0.0, 1.0), 1.0);
 }`
 
-// shared by every preset shader
+// a picture drawn onto a quad (stickers, the mascot, frames): corners in pixels from the
+// top left, colours premultiplied by their transparency so the edges blend cleanly
+const SPRITE_VERTEX = `#version 300 es
+in vec2 a_pos;
+in vec2 a_uv;
+uniform vec2 u_size;
+out vec2 v_uv;
+void main() {
+  gl_Position = vec4(a_pos.x / u_size.x * 2.0 - 1.0, 1.0 - a_pos.y / u_size.y * 2.0, 0.0, 1.0);
+  v_uv = a_uv;
+}`
+const SPRITE = `#version 300 es
+precision highp float;
+uniform sampler2D u_sprite;
+in vec2 v_uv;
+out vec4 outColor;
+void main() { outColor = texture(u_sprite, v_uv); }`
+
+// 5: shared by every preset shader
 const PRESET_HEADER = `#version 300 es
 precision highp float;
 uniform sampler2D u_image;
@@ -251,6 +341,8 @@ const DUOTONES = {
 
 // presets drawn live; any other name shows the picture unchanged until it's captured
 export const LIVE_PRESETS = Object.keys(PRESET_SHADERS)
+// focus modes drawn live (core/masks.py FOCUS_MODES, after Off)
+export const LIVE_FOCUS_MODES = Object.keys(FOCUS_MODES)
 
 
 export class EffectRenderer {
@@ -260,16 +352,19 @@ export class EffectRenderer {
     const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, preserveDrawingBuffer: true })
     if (!gl) throw new Error('This browser has no WebGL 2, which the live preview needs')
     this.gl = gl
-    this.programs = new Map()                  // shader source -> { program, uniforms }
+    this.programs = new Map()                  // shader sources -> { program, uniform() }
+    this.pictures = new Map()                  // url -> a loaded picture (art())
 
-    const quad = gl.createBuffer()
-    gl.bindBuffer(gl.ARRAY_BUFFER, quad)
+    this.quad = gl.createBuffer()
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quad)
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW)
-    this.quad = quad
+    this.spriteBuffer = gl.createBuffer()
 
     this.videoTexture = this.#texture()
-    this.adjustedTexture = this.#texture()     // pass 1's result, which pass 2 reads
-    this.framebuffer = gl.createFramebuffer()
+    this.maskTexture = this.#texture()
+    this.maskVersion = -1
+    // each pass draws into one of these, and the next pass reads it
+    this.targets = { scene: this.#target(), focus: this.#target(), adjusted: this.#target() }
     this.width = 0
     this.height = 0
   }
@@ -283,48 +378,114 @@ export class EffectRenderer {
     const gl = this.gl
     this.canvas.width = this.width = width
     this.canvas.height = this.height = height
-    gl.bindTexture(gl.TEXTURE_2D, this.adjustedTexture)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer)
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.adjustedTexture, 0)
+    for (const { texture, framebuffer } of Object.values(this.targets)) {
+      gl.bindTexture(gl.TEXTURE_2D, texture)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
-  render(source, { look, presetName = 'Original', mirror = true, scale = 1, time = 0 }) {
-    // draws one frame of source (a playing <video>, or any image) with the look
+  art(url) {
+    // a picture as a texture, loaded the first time it's asked for. Returns an entry whose
+    // .ready turns true once it's loaded ({ texture, width, height }), or .failed.
+    let entry = this.pictures.get(url)
+    if (entry) return entry
+    entry = { ready: false, failed: false }
+    this.pictures.set(url, entry)
+    const image = new Image()
+    image.src = url
+    image.decode().then(() => {
+      if (!this.gl) return                     // disposed while it loaded
+      const gl = this.gl
+      entry.texture = this.#texture()
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image)
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false)
+      // art is usually drawn smaller than it is, so it gets mipmaps to stay smooth
+      gl.generateMipmap(gl.TEXTURE_2D)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
+      Object.assign(entry, { ready: true, width: image.naturalWidth, height: image.naturalHeight })
+    }).catch(() => { entry.failed = true })
+    return entry
+  }
+
+  render(source, { look, presetName = 'Original', mirror = true, scale = 1, time = 0, mask = null,
+                   background = null, focus = 'Off', stickers = [], stickersFirst = false, overlays = [] }) {
+    // draws one frame of source (a playing <video>, or any image) with the look.
+    // mask: the person mask from PersonSegmenter. background: an art() entry.
+    // stickers and overlays: [{ texture, quad }], quads in pixels from the top left.
     const gl = this.gl
     gl.bindTexture(gl.TEXTURE_2D, this.videoTexture)
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source)
+    const hasMask = Boolean(mask?.width)
+    if (hasMask && mask.version !== this.maskVersion) {
+      // already bottom row first, one byte per pixel
+      gl.bindTexture(gl.TEXTURE_2D, this.maskTexture)
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, mask.width, mask.height, 0, gl.RED, gl.UNSIGNED_BYTE, mask.data)
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
+      this.maskVersion = mask.version
+    }
     gl.viewport(0, 0, this.width, this.height)
 
-    // pass 1, into the framebuffer
-    const adjust = this.#program(ADJUST)
-    gl.useProgram(adjust.program)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.framebuffer)
-    gl.uniform1i(adjust.uniform('u_video'), 0)
-    gl.uniform2f(adjust.uniform('u_size'), this.width, this.height)
-    gl.uniform1i(adjust.uniform('u_mirror'), mirror ? 1 : 0)
+    // 1: the scene
+    const swap = hasMask && Boolean(background?.ready)
+    const scene = this.#pass(SCENE, this.targets.scene, [this.videoTexture, this.maskTexture, swap ? background.texture : this.videoTexture])
+    gl.uniform1i(scene.uniform('u_video'), 0)
+    gl.uniform1i(scene.uniform('u_mask'), 1)
+    gl.uniform1i(scene.uniform('u_background'), 2)
+    gl.uniform1i(scene.uniform('u_mirror'), mirror ? 1 : 0)
+    gl.uniform1i(scene.uniform('u_swap'), swap ? 1 : 0)
+    this.#draw()
+    let picture = this.targets.scene.texture
+
+    // 2: the focus effect, which needs the person mask
+    const mode = hasMask ? FOCUS_MODES[focus] || 0 : 0
+    gl.bindTexture(gl.TEXTURE_2D, picture)
+    if (mode === 2) gl.generateMipmap(gl.TEXTURE_2D)       // the blur reads smaller copies
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mode === 2 ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR)
+    if (mode) {
+      const focusPass = this.#pass(FOCUS, this.targets.focus, [picture, this.maskTexture])
+      gl.uniform1i(focusPass.uniform('u_image'), 0)
+      gl.uniform1i(focusPass.uniform('u_mask'), 1)
+      gl.uniform1i(focusPass.uniform('u_mirror'), mirror ? 1 : 0)
+      gl.uniform1i(focusPass.uniform('u_mode'), mode)
+      gl.uniform1f(focusPass.uniform('u_scale'), scale)
+      this.#draw()
+      picture = this.targets.focus.texture
+    }
+
+    // 3: greyscale, filter, contrast and brightness
+    const adjust = this.#pass(ADJUST, this.targets.adjusted, [picture])
+    gl.uniform1i(adjust.uniform('u_image'), 0)
     gl.uniform1i(adjust.uniform('u_gray'), look.grayscale ? 1 : 0)
     gl.uniform1fv(adjust.uniform('u_kernel'), (KERNELS[look.kernel] || KERNELS[0]).weights)
     gl.uniform1f(adjust.uniform('u_contrast'), look.contrast)
     gl.uniform1f(adjust.uniform('u_brightness'), look.brightness - 50)
     this.#draw()
 
-    // pass 2, onto the canvas
+    // 4: stickers before a preset that moves the face, so they move with it
+    if (stickersFirst) this.#sprites(stickers)
+
+    // 5: the preset, onto the canvas
     const shader = PRESET_SHADERS[presetName] || PRESET_SHADERS.Original
-    const preset = this.#program(PRESET_HEADER + (shader.functions || '') + `\nvoid main() {${shader.main}\n}`)
-    gl.useProgram(preset.program)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-    gl.bindTexture(gl.TEXTURE_2D, this.adjustedTexture)
+    const preset = this.#pass(PRESET_HEADER + (shader.functions || '') + `\nvoid main() {${shader.main}\n}`, null,
+                              [this.targets.adjusted.texture])
     gl.uniform1i(preset.uniform('u_image'), 0)
-    gl.uniform2f(preset.uniform('u_size'), this.width, this.height)
     gl.uniform1f(preset.uniform('u_scale'), scale)
     gl.uniform1f(preset.uniform('u_time'), time % 1000)
     const [dark, light] = (DUOTONES[presetName] || (() => [[0, 0, 0], [1, 1, 1]]))()
     gl.uniform3fv(preset.uniform('u_dark'), dark)
     gl.uniform3fv(preset.uniform('u_light'), light)
     this.#draw()
+
+    // 6: stickers, then the mascot and frame, on top
+    this.#sprites([...(stickersFirst ? [] : stickers), ...overlays])
   }
 
   snapshot(type = 'image/jpeg', quality = 0.92) {
@@ -335,11 +496,18 @@ export class EffectRenderer {
   dispose() {
     const gl = this.gl
     for (const { program } of this.programs.values()) gl.deleteProgram(program)
+    for (const entry of this.pictures.values()) if (entry.texture) gl.deleteTexture(entry.texture)
+    for (const { texture, framebuffer } of Object.values(this.targets)) {
+      gl.deleteTexture(texture)
+      gl.deleteFramebuffer(framebuffer)
+    }
     gl.deleteTexture(this.videoTexture)
-    gl.deleteTexture(this.adjustedTexture)
-    gl.deleteFramebuffer(this.framebuffer)
+    gl.deleteTexture(this.maskTexture)
     gl.deleteBuffer(this.quad)
+    gl.deleteBuffer(this.spriteBuffer)
     this.programs.clear()
+    this.pictures.clear()
+    this.gl = null
   }
 
   #texture() {
@@ -353,9 +521,58 @@ export class EffectRenderer {
     return texture
   }
 
-  #program(fragmentSource) {
+  #target() {
+    // a texture to draw into (sized in resize())
+    return { texture: this.#texture(), framebuffer: this.gl.createFramebuffer() }
+  }
+
+  #pass(fragmentSource, target, textures) {
+    // starts a full-picture pass: its program, where it draws (null = the canvas), and the
+    // textures it reads, on units 0, 1, 2...
+    const gl = this.gl
+    const program = this.#program(fragmentSource)
+    gl.useProgram(program.program)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.framebuffer : null)
+    textures.forEach((texture, unit) => {
+      gl.activeTexture(gl.TEXTURE0 + unit)
+      gl.bindTexture(gl.TEXTURE_2D, texture)
+    })
+    gl.activeTexture(gl.TEXTURE0)
+    gl.uniform2f(program.uniform('u_size'), this.width, this.height)
+    return program
+  }
+
+  #sprites(sprites) {
+    // draws pictures onto quads over whatever the current pass drew
+    if (!sprites.length) return
+    const gl = this.gl
+    const sprite = this.#program(SPRITE, SPRITE_VERTEX)
+    gl.useProgram(sprite.program)
+    gl.uniform2f(sprite.uniform('u_size'), this.width, this.height)
+    gl.uniform1i(sprite.uniform('u_sprite'), 0)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)            // premultiplied colours
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.spriteBuffer)
+    gl.enableVertexAttribArray(0)
+    gl.enableVertexAttribArray(1)
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 16, 0)
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8)
+    gl.activeTexture(gl.TEXTURE0)
+    for (const { texture, quad } of sprites) {
+      // the picture's top is v = 1, because pictures are uploaded flipped
+      const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = quad
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([x0, y0, 0, 1, x1, y1, 1, 1, x2, y2, 1, 0, x3, y3, 0, 0]), gl.DYNAMIC_DRAW)
+      gl.bindTexture(gl.TEXTURE_2D, texture)
+      gl.drawArrays(gl.TRIANGLE_FAN, 0, 4)
+    }
+    gl.disableVertexAttribArray(1)
+    gl.disable(gl.BLEND)
+  }
+
+  #program(fragmentSource, vertexSource = VERTEX) {
     // compiled the first time each shader is used, then kept
-    if (this.programs.has(fragmentSource)) return this.programs.get(fragmentSource)
+    const key = vertexSource + fragmentSource
+    if (this.programs.has(key)) return this.programs.get(key)
     const gl = this.gl
     const compile = (type, source) => {
       const shader = gl.createShader(type)
@@ -367,9 +584,10 @@ export class EffectRenderer {
       return shader
     }
     const program = gl.createProgram()
-    gl.attachShader(program, compile(gl.VERTEX_SHADER, VERTEX))
+    gl.attachShader(program, compile(gl.VERTEX_SHADER, vertexSource))
     gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragmentSource))
     gl.bindAttribLocation(program, 0, 'a_pos')
+    gl.bindAttribLocation(program, 1, 'a_uv')
     gl.linkProgram(program)
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
       throw new Error(`A live effect failed to link: ${gl.getProgramInfoLog(program)}`)
@@ -382,16 +600,17 @@ export class EffectRenderer {
         return locations.get(name)
       },
     }
-    this.programs.set(fragmentSource, entry)
+    this.programs.set(key, entry)
     return entry
   }
 
   #draw() {
+    // the full-picture quad
     const gl = this.gl
-    gl.activeTexture(gl.TEXTURE0)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.quad)
     gl.enableVertexAttribArray(0)
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   }
 }
+

@@ -16,6 +16,7 @@ from api.photos import MAX_SIDE                                   # noqa: E402
 from core.brand import ACCENT, PRIMARY, bgr                       # noqa: E402
 from core.filters import KERNEL_NAMES, MOVES_PIXELS, PRESETS      # noqa: E402
 from core.look import Look                                        # noqa: E402
+from core.masks import FOCUS_MODES                                # noqa: E402
 
 ENGINE_DIR = SERVICE_DIR / 'web' / 'src' / 'engine'
 
@@ -35,6 +36,14 @@ class WebPresetsTest(unittest.TestCase):
     def test_preset_names_match(self):
         names = re.findall(r"'([^']+)'", block(self.presets_js, 'export const PRESET_NAMES'))
         self.assertEqual(names, [name for name, _ in PRESETS])
+
+    def test_focus_modes_match(self):
+        line = re.search(r'export const FOCUS_MODES = \[(.*)\]', self.presets_js).group(1)
+        self.assertEqual(re.findall(r"'([^']+)'", line), FOCUS_MODES)
+        # every focus mode after Off is drawn live
+        line = re.search(r'^const FOCUS_MODES = \{(.*)\}', self.effects_js, re.MULTILINE).group(1)
+        shader_modes = re.findall(r"'([^']+)': \d", line)
+        self.assertEqual(shader_modes, FOCUS_MODES[1:])
 
     def test_presets_that_move_pixels_match(self):
         line = re.search(r'export const MOVES_PIXELS = \[(.*)\]', self.presets_js).group(1)
