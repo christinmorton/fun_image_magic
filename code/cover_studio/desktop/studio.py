@@ -19,10 +19,10 @@ SERVICE_DIR = Path(__file__).resolve().parent.parent
 if str(SERVICE_DIR) not in sys.path:
     sys.path.insert(0, str(SERVICE_DIR))
 
-from core.cover_layout import (LAYOUTS, PIECES, STICKERS, CoverWords, apply_lettering,      # noqa: E402
+from core.cover_layout import (LAYOUTS, STICKERS, CoverWords, apply_lettering,              # noqa: E402
                                draw_cover_lettering, placeholder, square_crop)
 from core.designs import save_lettering                                                      # noqa: E402
-from core.finish import FINISHES                                                             # noqa: E402
+from core.finish import FINISHES, age                                                        # noqa: E402
 from core.lettering import TREATMENTS                                                        # noqa: E402
 from desktop.sources import choose_image_file, load_image                                    # noqa: E402
 
@@ -31,7 +31,7 @@ PREVIEW = 720              # the cover on screen, in pixels
 BAR_H = 138                # the dark bar above it, with the settings and keys
 LAYOUT_KEYS = list(LAYOUTS)
 STYLE_NAMES = list(TREATMENTS)
-PARTS = ['all', 'name', 'title', 'presents', 'featuring', 'sticker']     # what Tab picks for A to age
+PARTS = ['all', 'artwork', 'name', 'title', 'presents', 'featuring', 'sticker']   # what Tab picks for A to age
 TAB_KEY = 9
 GOLD = (1, 207, 255)
 
@@ -86,16 +86,17 @@ FIELDS = {
 
 class LetteringScreen:
     # everything on the lettering screen; no windows here, so it can be tested
-    def __init__(self, ask=ask_text):
+    def __init__(self, ask=ask_text, picture=None, name='BIG MIKE'):
         self.sticker = 1                     # index into STICKERS: Hood Classic
         _, lines, look = STICKERS[self.sticker]
-        self.words = CoverWords(name='BIG MIKE', title='BOSS LIFE', sticker=lines)
+        self.words = CoverWords(name=name, title='BOSS LIFE', sticker=lines)
         self.layout = LAYOUT_KEYS[0]
         self.styles = {**LAYOUTS[self.layout].styles, 'sticker': look}
         self.seed = 1
-        self.finishes = {piece: 'print' for piece in PIECES}    # each part aged like a 90s CD booklet
+        # each part aged like a 90s CD booklet, the picture ("artwork") too
+        self.finishes = {part: 'print' for part in PARTS[1:]}
         self.part = 'all'                    # what A changes the finish of (Tab picks)
-        self.picture = None                  # the BGR picture behind the words (None = placeholder)
+        self.picture = picture               # the BGR picture behind the words (None = placeholder)
         self.ask = ask                       # how to ask for text (a dialog; replaced in tests)
         self.message, self.message_until = '', 0.0
         self._layer = (None, None)           # (settings, lettering), redrawn only when they change
@@ -116,6 +117,7 @@ class LetteringScreen:
                 picture = placeholder(PREVIEW, 4 if self.layout == 'crew_row' else 1)
             else:
                 picture = cv2.resize(square_crop(self.picture), (PREVIEW, PREVIEW), interpolation=cv2.INTER_AREA)
+            picture = age(picture, self.finishes['artwork'], 1.0, self.seed, unit_size=PREVIEW)
             self._cover = (key, apply_lettering(picture, self._layer[1]))
         return self._cover[1]
 
@@ -128,14 +130,15 @@ class LetteringScreen:
         showing_message = self.message and (now or time.time()) < self.message_until
         cv2.putText(bar, self.message if showing_message else status, (14, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
                     GOLD if showing_message else (255, 255, 255), 2, cv2.LINE_AA)
-        # each part's finish, with the part that A changes in gold
-        x = 14
-        for i, piece in enumerate(['finish:'] + PARTS[1:]):
-            text = piece if i == 0 else f'{piece} {self.finishes[piece]}'
-            chosen = i > 0 and self.part in ('all', piece)
-            cv2.putText(bar, text, (x, 56), cv2.FONT_HERSHEY_SIMPLEX, 0.5, GOLD if chosen else (200, 200, 200),
+        # each part's finish, with the part that A changes in gold (smaller text if it's long)
+        texts = ['finish:'] + [f'{part} {self.finishes[part]}' for part in PARTS[1:]]
+        wide = sum(cv2.getTextSize(t, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0][0] + 12 for t in texts)
+        scale, x = min(0.5, 0.5 * (PREVIEW - 28) / wide), 14
+        for i, text in enumerate(texts):
+            chosen = i > 0 and self.part in ('all', PARTS[i])
+            cv2.putText(bar, text, (x, 56), cv2.FONT_HERSHEY_SIMPLEX, scale, GOLD if chosen else (200, 200, 200),
                         2 if chosen else 1, cv2.LINE_AA)
-            x += cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0][0] + 14
+            x += cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, scale, 2)[0][0] + int(12 * scale / 0.5)
         hints = ['N name   T title   P presents   F featuring   E sticker words   K sticker',
                  'L layout   1 name style   2 title style   TAB part   A finish   R reshuffle',
                  'U picture   B plain   S save print file   Q quit']
@@ -183,7 +186,7 @@ class LetteringScreen:
         elif k == '2':
             self.styles['title'] = next_in(STYLE_NAMES, self.styles['title'])
         elif k == 'a':
-            parts = PIECES if self.part == 'all' else [self.part]
+            parts = PARTS[1:] if self.part == 'all' else [self.part]
             new = next_in(FINISHES, self.finishes[parts[-1]])
             for piece in parts:
                 self.finishes[piece] = new
@@ -206,14 +209,15 @@ class LetteringScreen:
                               finishes=self.finishes)
 
 
-def main():
+def main(picture=None, name='BIG MIKE'):
+    # picture: artwork to letter (from desktop/artwork.py), or None for the placeholder
     # Windows display scaling would blur the window; this keeps it sharp
     if sys.platform == 'win32':
         try:
             ctypes.windll.shcore.SetProcessDpiAwareness(2)
         except (AttributeError, OSError):
             pass
-    screen = LetteringScreen()
+    screen = LetteringScreen(picture=picture, name=name)
     cv2.namedWindow(WINDOW)
     cv2.moveWindow(WINDOW, 40, 20)
     while True:

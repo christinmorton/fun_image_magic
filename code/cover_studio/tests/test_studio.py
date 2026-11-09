@@ -63,6 +63,8 @@ class TestLetteringScreen(unittest.TestCase):
         screen.handle_key(ord('a'))                                       # part "all"
         self.assertEqual(set(screen.finishes.values()), {'vhs'})
         self.assertFalse(np.array_equal(aged, screen.cover()))
+        screen.handle_key(TAB_KEY)                                        # part "artwork"
+        self.assertEqual(screen.part, 'artwork')
         screen.handle_key(TAB_KEY)                                        # part "name"
         self.assertEqual(screen.part, 'name')
         screen.handle_key(ord('a'))
@@ -87,6 +89,17 @@ class TestLetteringScreen(unittest.TestCase):
         self.assertEqual(screen.handle_key(ord('q')), 'quit')
         self.assertEqual(screen.handle_key(ord('S')), 'save')
         self.assertIsNone(screen.handle_key(-1))
+
+    def test_starting_with_artwork_and_a_name(self):
+        art = np.random.default_rng(0).integers(0, 255, (512, 512, 3)).astype(np.uint8)
+        screen = LetteringScreen(picture=art, name='OOUMARI')
+        self.assertEqual(screen.words.name, 'OOUMARI')
+        aged = screen.cover().copy()
+        screen.handle_key(TAB_KEY)                                        # part "artwork"
+        screen.handle_key(ord('a'))                                       # artwork: print -> vhs
+        self.assertEqual(screen.finishes['artwork'], 'vhs')
+        self.assertEqual(screen.finishes['name'], 'print')
+        self.assertFalse(np.array_equal(aged, screen.cover()))           # the picture itself is aged
 
     def test_a_picture_behind_the_words(self):
         screen = LetteringScreen()

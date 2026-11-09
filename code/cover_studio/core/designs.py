@@ -12,6 +12,9 @@ import cv2
 from . import CORE_DIR
 from .cover_layout import (LAYOUTS, PIECES, CoverWords, apply_lettering, draw_cover_lettering, placeholder,
                            square_crop)
+from .finish import age
+
+PARTS = PIECES + ['artwork']        # everything that can have its own finish (artwork = the picture)
 
 DESIGNS_DIR = CORE_DIR.parent / 'designs'
 PRINT_SIZE = 3600          # a square cover 12 inches across at 300 dpi
@@ -34,18 +37,27 @@ def new_folder(designs_dir, name):
 def save_lettering(words, layout, styles=None, seed=0, picture=None, print_size=PRINT_SIZE,
                    designs_dir=DESIGNS_DIR, finishes=None, strength=1.0):
     # draws the lettering at print size, each part aged with its own finish (see
-    # core/finish.py; e.g. {'name': 'vhs'}), and saves it with a preview and its recipe;
-    # returns the new folder. picture is the BGR picture behind it (None = a placeholder)
+    # core/finish.py; e.g. {'name': 'vhs', 'artwork': 'print'}), and saves it with a preview
+    # and its recipe; returns the new folder. picture is the BGR picture behind it (None =
+    # a placeholder); a real picture is also saved, with the whole cover at its size
     styles = {**LAYOUTS[layout].styles, **(styles or {})}
-    finishes = {piece: (finishes or {}).get(piece, 'clean') for piece in PIECES}
+    finishes = {part: (finishes or {}).get(part, 'clean') for part in PARTS}
     folder = new_folder(designs_dir, words.name)
     lettering = draw_cover_lettering(words, layout, print_size, styles, seed, finishes, strength)
     cv2.imwrite(str(folder / 'lettering.png'), lettering)
-    if picture is None:
-        picture = placeholder(PREVIEW_SIZE, 4 if layout == 'crew_row' else 1)
-    picture = cv2.resize(square_crop(picture), (PREVIEW_SIZE, PREVIEW_SIZE), interpolation=cv2.INTER_AREA)
+    if picture is not None:
+        art = square_crop(picture)
+        cv2.imwrite(str(folder / 'artwork.png'), art)
+        side = art.shape[0]
+        cover = apply_lettering(age(art, finishes['artwork'], strength, seed),
+                                cv2.resize(lettering, (side, side), interpolation=cv2.INTER_AREA))
+        cv2.imwrite(str(folder / 'cover.jpg'), cover, [cv2.IMWRITE_JPEG_QUALITY, 94])
+    else:
+        art = placeholder(PREVIEW_SIZE, 4 if layout == 'crew_row' else 1)
+    art = age(cv2.resize(art, (PREVIEW_SIZE, PREVIEW_SIZE), interpolation=cv2.INTER_AREA),
+              finishes['artwork'], strength, seed, unit_size=PREVIEW_SIZE)
     small = cv2.resize(lettering, (PREVIEW_SIZE, PREVIEW_SIZE), interpolation=cv2.INTER_AREA)
-    cv2.imwrite(str(folder / 'preview.jpg'), apply_lettering(picture, small), [cv2.IMWRITE_JPEG_QUALITY, 92])
+    cv2.imwrite(str(folder / 'preview.jpg'), apply_lettering(art, small), [cv2.IMWRITE_JPEG_QUALITY, 92])
     recipe = {'words': asdict(words), 'layout': layout, 'styles': styles, 'seed': seed,
               'finishes': finishes, 'strength': strength,
               'print_size': print_size, 'created': datetime.now().isoformat(timespec='seconds')}
@@ -60,6 +72,6 @@ def load_recipe(folder):
     recipe['words'] = CoverWords(**{k: tuple(v) if isinstance(v, list) else v for k, v in words.items()})
     if 'finishes' not in recipe:                    # older recipes had one finish (or none) for everything
         one = recipe.pop('finish', 'clean')
-        recipe['finishes'] = {piece: one for piece in PIECES}
+        recipe['finishes'] = {part: one for part in PARTS}
     recipe.setdefault('strength', 1.0)
     return recipe

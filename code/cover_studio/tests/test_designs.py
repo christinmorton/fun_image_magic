@@ -38,6 +38,17 @@ class TestDesigns(unittest.TestCase):
                                          r['strength'])
             self.assertTrue(np.array_equal(again, lettering))
 
+    def test_a_design_with_artwork_saves_the_whole_cover(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            art = np.full((400, 500, 3), 120, np.uint8)                      # not square: cropped
+            folder = save_lettering(WORDS, 'hero', print_size=300, picture=art, designs_dir=Path(tmp),
+                                    finishes={'artwork': 'print'})
+            self.assertEqual(cv2.imread(str(folder / 'artwork.png')).shape, (400, 400, 3))
+            self.assertEqual(cv2.imread(str(folder / 'cover.jpg')).shape, (400, 400, 3))
+            self.assertEqual(load_recipe(folder)['finishes']['artwork'], 'print')
+            plain = save_lettering(WORDS, 'hero', print_size=300, designs_dir=Path(tmp))
+            self.assertFalse((plain / 'cover.jpg').exists())                 # only with real artwork
+
     def test_an_older_recipe_with_one_finish(self):
         with tempfile.TemporaryDirectory() as tmp:
             folder = save_lettering(WORDS, 'hero', print_size=200, designs_dir=Path(tmp))
