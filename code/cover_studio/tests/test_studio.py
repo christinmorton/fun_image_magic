@@ -4,6 +4,7 @@
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 
@@ -83,6 +84,18 @@ class TestLetteringScreen(unittest.TestCase):
         self.assertEqual(seen[-1], (('CERTIFIED', 'HOOD CLASSIC'), 'badge'))   # round to the start
         screen.handle_key(ord('l'))
         self.assertEqual(screen.styles['sticker'], 'badge')               # kept when the layout changes
+
+    def test_export_needs_a_saved_design(self):
+        screen = LetteringScreen(background=lambda work: work())
+        screen.handle_key(ord('x'))
+        self.assertIn('Save the design first', screen.message)
+        screen.saved = Path('designs/20261108-120000-big-mike')
+        with mock.patch('desktop.studio.export_products', return_value=Path('exports/20261108-120000-big-mike')) as fake:
+            screen.handle_key(ord('x'))
+        fake.assert_called_once()
+        self.assertEqual(fake.call_args.args[0], screen.saved)
+        self.assertIn('exports/20261108-120000-big-mike', screen.message)
+        self.assertFalse(screen.exporting)
 
     def test_quit_save_and_nothing(self):
         screen = LetteringScreen()

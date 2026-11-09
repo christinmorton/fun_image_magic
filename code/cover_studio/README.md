@@ -34,8 +34,11 @@ work, but aren't part of this app's focus.
   print-size transparent PNG (3600 px square) in `designs\`, with a preview and a recipe
   that remakes it. TAB picks a part (all, name, title, presents, featuring, sticker) and A
   cycles its aged finish (clean, print, VHS). K cycles the sticker (none, Hood Classic,
-  Street Certified stamp, Warning) and E edits its words. The keys are shown at the top of
-  the window.
+  Street Certified stamp, Warning) and E edits its words. After S saves a design, X makes
+  its print files (about a minute, in the background): a poster (5400 x 7200), t-shirt
+  front (4500 x 5400), hoodie front (4200 x 3600) and phone case (1500 x 3000), all 300 dpi
+  PNGs, plus `mockups.jpg`, in `exports\<design>\`. The artwork is upscaled and the
+  lettering redrawn at each size. The keys are shown at the top of the window.
 - **Guided face scan** (free, no AI): `.\.venv\Scripts\python.exe desktop\scan.py`. Asks for
   the person's name and permission, then guides them through three angles with the webcam
   (straight on, a three-quarter turn to their left, then to their right), capturing each

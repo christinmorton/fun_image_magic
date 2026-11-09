@@ -6,6 +6,7 @@
 # Free to use: no AI. The picture behind the words is a placeholder, or any image (U).
 import ctypes
 import sys
+import threading
 import time
 from dataclasses import replace
 from pathlib import Path
@@ -23,6 +24,7 @@ from core.cover_layout import (LAYOUTS, STICKERS, CoverWords, apply_lettering,  
                                draw_cover_lettering, placeholder, square_crop)
 from core.designs import save_lettering                                                      # noqa: E402
 from core.finish import FINISHES, age                                                        # noqa: E402
+from core.products import export_products                                                    # noqa: E402
 from core.lettering import TREATMENTS                                                        # noqa: E402
 from desktop.sources import choose_image_file, load_image                                    # noqa: E402
 
@@ -86,7 +88,7 @@ FIELDS = {
 
 class LetteringScreen:
     # everything on the lettering screen; no windows here, so it can be tested
-    def __init__(self, ask=ask_text, picture=None, name='BIG MIKE'):
+    def __init__(self, ask=ask_text, picture=None, name='BIG MIKE', background=None):
         self.sticker = 1                     # index into STICKERS: Hood Classic
         _, lines, look = STICKERS[self.sticker]
         self.words = CoverWords(name=name, title='BOSS LIFE', sticker=lines)
@@ -101,6 +103,11 @@ class LetteringScreen:
         self.message, self.message_until = '', 0.0
         self._layer = (None, None)           # (settings, lettering), redrawn only when they change
         self._cover = (None, None)
+        self.saved = None                    # the latest saved design's folder (X exports it)
+        self.exporting = False
+        # print files take about a minute, so they're made in the background (not a daemon
+        # thread: closing the window still lets an export finish)
+        self.background = background or (lambda work: threading.Thread(target=work).start())
 
     def settings(self):
         return (repr(self.words), self.layout, tuple(sorted(self.styles.items())), self.seed,
@@ -141,7 +148,7 @@ class LetteringScreen:
             x += cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, scale, 2)[0][0] + int(12 * scale / 0.5)
         hints = ['N name   T title   P presents   F featuring   E sticker words   K sticker',
                  'L layout   1 name style   2 title style   TAB part   A finish   R reshuffle',
-                 'U picture   B plain   S save print file   Q quit']
+                 'U picture   B plain   S save   X print files   Q quit']
         for i, hint in enumerate(hints):
             cv2.putText(bar, hint, (14, 84 + 22 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1, cv2.LINE_AA)
         return np.vstack([bar, self.cover()])
@@ -202,11 +209,34 @@ class LetteringScreen:
                 self.say('Could not open that picture')
         elif k == 'b':
             self.picture = None
+        elif k == 'x':
+            self.start_export()
         return None
 
     def save(self):
-        return save_lettering(self.words, self.layout, self.styles, self.seed, self.picture,
-                              finishes=self.finishes)
+        self.saved = save_lettering(self.words, self.layout, self.styles, self.seed, self.picture,
+                                    finishes=self.finishes)
+        return self.saved
+
+    def start_export(self):
+        # the latest saved design's print files and mockups, made in the background
+        if self.exporting:
+            self.say('Still making the print files...')
+            return
+        if self.saved is None:
+            self.say('Save the design first (S), then X makes its print files')
+            return
+        self.exporting = True
+        folder = self.saved
+        def work():
+            try:
+                out = export_products(folder, progress=lambda text: self.say(text, 300))
+                self.say(f'Print files and mockups are in exports/{out.name}', 12)
+            except Exception as error:
+                self.say(f'The print files failed: {type(error).__name__}: {error}'[:100], 12)
+            finally:
+                self.exporting = False
+        self.background(work)
 
 
 def main(picture=None, name='BIG MIKE'):
