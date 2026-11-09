@@ -198,17 +198,28 @@ own finish and a saved design includes `artwork.png` and the whole `cover.jpg`. 
 is tested with a fake image AI; its first real run still needs trying by hand.
 
 ### Phase 5: Put it together and export
-24. **Combine:** the chosen artwork plus the lettering, laid out with one of the layouts.
-25. **Keep the design as layers** (artwork, lettering, extras), not one flat image. Each
-    product then gets its own layout: a square "cover" for a poster, a cover with
-    lettering above and below for a tee, a tall crop for a phone case.
-26. **Upscaling:** test the model's 2K and 4K output against OpenCV's own super-resolution
-    (`dnn_superres`, part of `opencv-contrib`, which we already use) for print sizes.
-27. **Product specs** in one file (`core/products.py`): print area, pixel size, DPI, bleed
-    and shape for each product. The exact numbers depend on the print-on-demand provider,
-    so they're confirmed when one is chosen. Adding a product means adding one entry.
-28. **Mockups:** each design shown on a plain shirt, hoodie, poster and phone-case image, for
-    proofs.
+24. ✅ **Combine:** the chosen artwork plus the lettering, laid out with one of the layouts
+    (the lettering screen, with the artwork aged as its own part).
+25. ✅ **Keep the design as layers:** a saved design keeps `artwork.png` and a recipe, so each
+    product redraws the lettering at its own size instead of stretching a flat image. The
+    poster puts the square cover in the middle with the artwork blurred out to the edges;
+    the tee and hoodie put it on a see-through print area; the phone case has its own tall
+    layout (name below the camera corner, artwork, title).
+26. ✅ **Upscaling** (`core/upscale.py`): on a 1K artwork made 3600 px, OpenCV's FSRCNN took
+    0.8 s and was clearly sharper than a plain resize; EDSR looked only slightly cleaner and
+    took 3.5 minutes. FSRCNN is the default. The models (Apache 2.0, about 80 MB) are kept
+    out of git and fetched by `tools/get_upscale_models.py`. Comparing it with the AI's 2K
+    final is still to do on real runs.
+27. ✅ **Product specs** in one file (`core/products.py`): poster 5400 x 7200 (18 x 24 in), tee
+    front 4500 x 5400 (15 x 18 in), hoodie front 4200 x 3600 (14 x 12 in), phone case
+    1500 x 3000, all 300 dpi PNGs. These are common print-on-demand sizes, **to confirm with
+    the provider** when one is chosen (bleed too). Adding a product means adding one entry.
+28. ✅ **Mockups** (`core/mockups.py`): each design drawn on a black tee, a black hoodie, a
+    framed poster and a phone case, in one `mockups.jpg`. They're simple drawings;
+    licensed photo mockups can replace them later.
+
+X on the lettering screen exports a saved design's print files and mockups to
+`exports/<design>/` in the background (about a minute).
 
 ### Phase 6: Crews
 29. **Scan each member** as their own subject.
