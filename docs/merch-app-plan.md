@@ -236,6 +236,10 @@ the name and title, or zooms it out if the face can't fit between them; the gap 
 with a blurred stretch of the artwork. Arrows move it, [ ] zoom, Z refits, O undoes, and
 the framing is saved with the design and used by the cover-based exports
 (`core/framing.py`). The prompt also asks for the head to sit below the top quarter.
+D on the lettering screen opens a saved design (words, styles, finishes, sticker, artwork,
+framing); moving its picture and pressing X updates that design in place and re-exports
+it, while other changes are saved as a new design. The first export (Devin Money) was
+re-made this way, with the face clear of the name.
 
 ### Phase 6: Crews
 29. **Scan each member** as their own subject.
