@@ -175,26 +175,28 @@ def piece_image(piece, words, layout, styles, bw, bh, seed):
     return img, (0, 0, img.shape[1], img.shape[0])
 
 def draw_cover_lettering(words, layout, size, styles=None, seed=0, finishes=None, strength=1.0):
-    # every piece of `words` placed by `layout` on a size x size cover, as a BGRA layer.
-    # styles can swap the treatment of the name or title, e.g. {'name': 'chrome'}, and
-    # choose the sticker's look, e.g. {'sticker': 'stamp'}. finishes ages each piece on
-    # its own, e.g. {'name': 'vhs', 'title': 'print'} (pieces left out stay clean)
+    # every piece of `words` placed by `layout` on a size x size cover (or a width x height
+    # canvas, if size is a pair), as a BGRA layer. styles can swap the treatment of the name
+    # or title, e.g. {'name': 'chrome'}, and choose the sticker's look, e.g. {'sticker':
+    # 'stamp'}. finishes ages each piece on its own, e.g. {'name': 'vhs', 'title': 'print'}
+    # (pieces left out stay clean)
     if isinstance(layout, str):
         layout = LAYOUTS[layout]
+    w, h = size if isinstance(size, tuple) else (size, size)
     styles = {**layout.styles, **(styles or {})}
     finishes = finishes or {}
-    bgr, alpha = np.zeros((size, size, 3), np.float32), np.zeros((size, size), np.float32)
+    bgr, alpha = np.zeros((h, w, 3), np.float32), np.zeros((h, w), np.float32)
     for piece in PIECES:
         spot = layout.spots.get(piece)
         if spot is None:
             continue
-        bx, by, bw, bh = spot.x * size, spot.y * size, spot.w * size, spot.h * size
+        bx, by, bw, bh = spot.x * w, spot.y * h, spot.w * w, spot.h * h
         drawn = piece_image(piece, words, layout, styles, bw, bh, seed)
         if drawn is None:
             continue
         img, (ix, iy, iw, ih) = drawn
         if finishes.get(piece, 'clean') != 'clean':
-            img = age(img, finishes[piece], strength, seed + PIECES.index(piece), unit_size=size)
+            img = age(img, finishes[piece], strength, seed + PIECES.index(piece), unit_size=max(w, h))
         x = {'left': bx - ix, 'right': bx + bw - ix - iw}.get(spot.align, bx + (bw - iw) / 2 - ix)
         bgr, alpha = paste(bgr, alpha, img, x, by + (bh - ih) / 2 - iy)
     return finish(bgr, alpha)
