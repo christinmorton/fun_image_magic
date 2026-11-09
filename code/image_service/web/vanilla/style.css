@@ -113,6 +113,18 @@ button.link { font: inherit; font-size: 0.85rem; background: none; border: 0; pa
 .presets button[aria-checked="true"] { background: var(--primary); border-color: var(--primary); color: #fff; }
 .presets button.final-only { border-style: dashed; }
 
+/* the art pickers: a row of thumbnails per kind */
+.art-picker { border: 0; padding: 0; margin: 10px 0 0; min-width: 0; }
+.art-picker legend { font-size: 0.9rem; padding: 0; margin-bottom: 4px; }
+.thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.thumbs button {
+  aspect-ratio: 1; padding: 3px; display: grid; place-items: center;
+  background: var(--bg); color: var(--muted); font: inherit; font-size: 0.75rem;
+  border: 1px solid var(--line); border-radius: 6px; cursor: pointer; overflow: hidden;
+}
+.thumbs button img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.thumbs button[aria-checked="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+
 /* captures: the unedited photo beside the service's render */
 .results { grid-area: results; }
 .results h2 { font-size: 1.1rem; margin: 8px 0; }

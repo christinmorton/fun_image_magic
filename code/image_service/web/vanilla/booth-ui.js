@@ -7,20 +7,19 @@
 //   })
 //   booth.destroy()                          // stops the camera and removes the booth
 //
-// The live preview runs in the browser. Each capture is uploaded once, and the service's
-// exact render of it is shown beside it, re-rendered when the look changes.
+// The live preview runs in the browser, art and all. Each capture is uploaded once, and the
+// service's exact render of it is shown beside it.
 import { EffectRenderer, ImageServiceClient, RESOLUTIONS, WebcamBooth, builtInCatalog, listCameras } from '../src/engine/index.js'
 
 const TIMERS = [0, 3, 5, 10]
 // text from the service (names, error messages) goes into HTML, so its < & " are escaped
 const escape = (text) => String(text).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
-// the final-render extras: catalog list, look setting, and the value for off
-const EXTRAS = [
-  { list: 'stickers', key: 'sticker', label: 'Face sticker', off: -1 },
-  { list: 'backgrounds', key: 'background', label: 'Background', off: -1 },
-  { list: 'frames', key: 'frame', label: 'Frame', off: -1 },
-  { list: 'mascots', key: 'mascot', label: 'Mascot', off: -1 },
-  { list: 'focus_modes', key: 'focus', label: 'Focus', off: 0, skipFirst: true },
+// the art pickers: catalog list and look setting (-1 = none)
+const ART = [
+  { list: 'stickers', key: 'sticker', label: 'Face sticker' },
+  { list: 'backgrounds', key: 'background', label: 'Background' },
+  { list: 'frames', key: 'frame', label: 'Frame' },
+  { list: 'mascots', key: 'mascot', label: 'Mascot' },
 ]
 
 const TEMPLATE = `
@@ -37,6 +36,7 @@ const TEMPLATE = `
         <span data-ref="fps">– fps</span>
         <span data-ref="faces">No faces</span>
         <span data-ref="tracking">Tracking: off</span>
+        <span data-ref="segmenting" hidden></span>
         <span data-ref="resolution"></span>
         <span class="service-pill" data-ref="service">Service: checking…</span>
       </div>
@@ -56,7 +56,7 @@ const TEMPLATE = `
           <select data-ref="resolutionPick">${RESOLUTIONS.map((r) => `<option value="${r.key}">${r.label}</option>`).join('')}</select>
         </label>
         <label class="check"><input type="checkbox" data-ref="mirror" checked> Mirror like a selfie camera</label>
-        <label class="check"><input type="checkbox" data-ref="showFaces" checked> Show face outlines</label>
+        <label class="check"><input type="checkbox" data-ref="showFaces"> Show face outlines</label>
       </details>
 
       <details open>
@@ -78,9 +78,10 @@ const TEMPLATE = `
       </details>
 
       <details open>
-        <summary>In the final picture</summary>
-        <p class="hint">Added by the service when it renders a capture.</p>
-        <div data-ref="extras"></div>
+        <summary>Stickers and art</summary>
+        <p class="hint" data-ref="artHint" hidden>The art comes from the service, which isn't connected.</p>
+        <div data-ref="art"></div>
+        <label>Focus <select data-ref="focus"></select></label>
       </details>
     </aside>
 
@@ -121,15 +122,21 @@ export function mountBooth(root, { serviceUrl = '/image-service', onCapture = nu
       return `<button type="button" role="radio" data-preset="${p.index}" aria-checked="false"
                 ${live ? '' : 'class="final-only" title="Shown in the final picture only"'}>${escape(p.name)}</button>`
     }).join('')
-    ref.extras.innerHTML = EXTRAS.map((extra) => {
-      const items = (catalog[extra.list] || []).filter((item) => !(extra.skipFirst && item.index === 0))
-      const disabled = !serviceReady || !items.length ? 'disabled' : ''
-      return `<label>${extra.label}
-        <select data-extra="${extra.key}" ${disabled}>
-          <option value="${extra.off}">None</option>
-          ${items.map((item) => `<option value="${item.index}">${escape(item.name)}</option>`).join('')}
-        </select></label>`
+    // a row of thumbnails per kind of art, with None first
+    ref.art.innerHTML = ART.map(({ list, key, label }) => {
+      const items = catalog[list] || []
+      if (!items.length) return ''
+      const button = (value, inner, name) =>
+        `<button type="button" role="radio" data-art="${key}" data-value="${value}" aria-checked="false"
+                 title="${escape(name)}" aria-label="${escape(name)}">${inner}</button>`
+      return `<fieldset class="art-picker"><legend>${label}</legend>
+        <div class="thumbs" role="radiogroup" aria-label="${label}">
+          ${button(-1, '<span>None</span>', 'None')}
+          ${items.map((item) => button(item.index, `<img src="${escape(service.url(item.thumbnail))}" alt="" loading="lazy">`, item.name)).join('')}
+        </div></fieldset>`
     }).join('')
+    ref.artHint.hidden = serviceReady
+    ref.focus.innerHTML = catalog.focus_modes.map((m) => `<option value="${m.index}">${escape(m.name)}</option>`).join('')
     syncControls()
   }
 
@@ -144,13 +151,15 @@ export function mountBooth(root, { serviceUrl = '/image-service', onCapture = nu
     for (const button of ref.presets.querySelectorAll('[data-preset]')) {
       button.setAttribute('aria-checked', String(Number(button.dataset.preset) === look.preset))
     }
-    for (const select of ref.extras.querySelectorAll('[data-extra]')) select.value = look[select.dataset.extra]
+    for (const button of ref.art.querySelectorAll('[data-art]')) {
+      button.setAttribute('aria-checked', String(Number(button.dataset.value) === look[button.dataset.art]))
+    }
+    ref.focus.value = look.focus
   }
 
-  function setLook(changes, { rerender = false } = {}) {
+  function setLook(changes) {
     booth.setLook(changes)
     syncControls()
-    if (rerender) rerenderLatest()
   }
 
   ref.contrast.addEventListener('input', () => setLook({ contrast: Number(ref.contrast.value) }))
@@ -162,11 +171,11 @@ export function mountBooth(root, { serviceUrl = '/image-service', onCapture = nu
     const button = event.target.closest('[data-preset]')
     if (button) setLook({ preset: Number(button.dataset.preset) })
   })
-  ref.extras.addEventListener('change', (event) => {
-    // extras only show in the service's render, so the latest capture is rendered again
-    const select = event.target.closest('[data-extra]')
-    if (select) setLook({ [select.dataset.extra]: Number(select.value) }, { rerender: true })
+  ref.art.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-art]')
+    if (button) setLook({ [button.dataset.art]: Number(button.dataset.value) })
   })
+  ref.focus.addEventListener('change', () => setLook({ focus: Number(ref.focus.value) }))
   ref.mirror.addEventListener('change', () => { booth.mirror = ref.mirror.checked })
   ref.showFaces.addEventListener('change', () => { booth.showFaces = ref.showFaces.checked })
   ref.device.addEventListener('change', () => startCamera())
@@ -190,6 +199,9 @@ export function mountBooth(root, { serviceUrl = '/image-service', onCapture = nu
     ref.fps.textContent = `${detail.fps} fps`
     ref.faces.textContent = detail.faces === 1 ? '1 face' : detail.faces ? `${detail.faces} faces` : 'No faces'
     ref.tracking.textContent = `Tracking: ${detail.tracking}`
+    // finding the person only starts once a background or focus effect is picked
+    ref.segmenting.hidden = detail.segmenting === 'off'
+    ref.segmenting.textContent = `Person: ${detail.segmenting}`
   })
   booth.addEventListener('error', ({ detail }) => toast(detail.message))
 
@@ -228,7 +240,7 @@ export function mountBooth(root, { serviceUrl = '/image-service', onCapture = nu
     try {
       const health = await service.health()
       catalog = await service.catalog()
-      booth.setCatalog(catalog)
+      booth.setCatalog(catalog, { artUrl: (path) => service.url(path) })
       serviceReady = true
       ref.service.textContent = `Service ${health.version}`
       ref.service.classList.add('ok')
@@ -308,7 +320,8 @@ export function mountBooth(root, { serviceUrl = '/image-service', onCapture = nu
       target.innerHTML = `
         <img src="${url}" alt="The service's finished picture">
         <figcaption>Service render · ${render.ms ?? '?'} ms · ${faces} found in the still
-          · <a href="${url}" download="render.jpg">Save</a></figcaption>`
+          · <a href="${url}" download="render.jpg">Save</a>
+          · <button type="button" class="link" data-rerender>Render with the current look</button></figcaption>`
       return render
     } catch (error) {
       target.innerHTML = `<p class="error">${escape(error.message)}</p>`
@@ -318,9 +331,12 @@ export function mountBooth(root, { serviceUrl = '/image-service', onCapture = nu
     }
   }
 
-  function rerenderLatest() {
-    if (captures.length && serviceReady) renderInto(captures[0], booth.look)
-  }
+  ref.captures.addEventListener('click', (event) => {
+    // the photo is already on the service, so a new look is just another render
+    const button = event.target.closest('[data-rerender]')
+    const entry = button && captures.find((c) => c.card.contains(button))
+    if (entry) renderInto(entry, booth.look)
+  })
 
   function toast(text) {
     const note = document.createElement('div')
