@@ -12,7 +12,7 @@ from PIL import Image
 
 from . import CORE_DIR
 from .cover_layout import CoverLayout, Spot, apply_lettering, draw_cover_lettering, placeholder, square_crop
-from .designs import load_recipe
+from .designs import load_artwork, load_recipe
 from .finish import age
 from .framing import Framing, blurred_fill, frame_artwork
 from .mockups import mockup_sheet
@@ -60,8 +60,7 @@ class Design:
 
 
 def load_design(folder):
-    art = cv2.imread(str(folder / 'artwork.png')) if (folder / 'artwork.png').exists() else None
-    return Design(folder, load_recipe(folder), art)
+    return Design(folder, load_recipe(folder), load_artwork(folder))
 
 def artwork_at(design, side, quality='fast', framed=True):
     # the design's artwork, upscaled to side x side, moved and zoomed as the design says

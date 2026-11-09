@@ -14,7 +14,8 @@ SERVICE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SERVICE_DIR))
 
 from core.cover_layout import CoverWords, draw_cover_lettering, square_crop   # noqa: E402
-from core.designs import load_recipe, save_lettering, slug                    # noqa: E402
+from core.designs import (list_designs, load_artwork, load_recipe, save_lettering,   # noqa: E402
+                          slug, update_framing)
 from core.framing import Framing                                              # noqa: E402
 
 WORDS = CoverWords(name='Big Mike!', title='BOSS LIFE', featuring=('Dre', 'Mama Jo'))
@@ -53,6 +54,21 @@ class TestDesigns(unittest.TestCase):
             self.assertEqual(load_recipe(folder)['framing'], {'zoom': 1.0, 'dx': 0.0, 'dy': 0.0})
             plain = save_lettering(WORDS, 'hero', print_size=300, designs_dir=Path(tmp))
             self.assertFalse((plain / 'cover.jpg').exists())                 # only with real artwork
+
+    def test_list_and_update_framing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            art = np.random.default_rng(0).integers(0, 255, (300, 300, 3)).astype(np.uint8)
+            first = save_lettering(WORDS, 'hero', print_size=200, picture=art, designs_dir=Path(tmp))
+            second = save_lettering(WORDS, 'hero', print_size=200, designs_dir=Path(tmp))
+            self.assertEqual(list_designs(Path(tmp)), [second, first])           # newest first
+            self.assertEqual(list_designs(Path(tmp) / 'nothing-here'), [])
+            cover_before = cv2.imread(str(first / 'cover.jpg'))
+            lettering_before = (first / 'lettering.png').read_bytes()
+            update_framing(first, Framing(dy=0.15))
+            self.assertEqual(load_recipe(first)['framing']['dy'], 0.15)
+            self.assertFalse(np.array_equal(cv2.imread(str(first / 'cover.jpg')), cover_before))
+            self.assertEqual((first / 'lettering.png').read_bytes(), lettering_before)   # the words didn't change
+            self.assertIsNone(load_artwork(second))                               # the placeholder design
 
     def test_an_older_recipe_with_one_finish(self):
         with tempfile.TemporaryDirectory() as tmp:
