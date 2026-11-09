@@ -45,6 +45,14 @@ work, but aren't part of this app's focus.
   front (4500 x 5400), hoodie front (4200 x 3600), sweatshirt front (4200 x 4800) and phone
   case (1500 x 3000), all 300 dpi PNGs, plus `mockups.jpg`, in `exports\<design>\`. The artwork is upscaled and the
   lettering redrawn at each size. The keys are shown at the top of the window.
+- **Mockup tool** (free, no AI): `.\.venv\Scripts\python.exe desktop\mockup_tool.py`. Goes
+  through the photos in `mockup_photos\` (people in blank tees, sweatshirts and hoodies;
+  bought, so kept out of git), showing where a design would print on each. A guesses every
+  new photo (MediaPipe finds the shoulders, hips and clothes), F jumps to the ones to
+  check, and the corners can be dragged; T changes the product, V front or back, S skips
+  a photo, C confirms it. D picks any design PNG and W puts it on every set-up photo of
+  that product, in `exports\mockups-<design>\`. Sub-folders named tee, sweatshirt or hoodie
+  tell it the product.
 - **Guided face scan** (free, no AI): `.\.venv\Scripts\python.exe desktop\scan.py`. Asks for
   the person's name and permission, then guides them through three angles with the webcam
   (straight on, a three-quarter turn to their left, then to their right), capturing each

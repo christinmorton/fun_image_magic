@@ -288,10 +288,11 @@ the photos, so **they never go into git**: chosen photos are copied into the git
     body, no person found).
 36. ✅ **Printed, not pasted:** the design is warped into the four corners, bent a little by the
     fabric's folds, shaded by them and given the fabric's texture.
-37. **The mockup tool** (`desktop/mockup_tool.py`): go through the photos, see the guess with
+37. ✅ **The mockup tool** (`desktop/mockup_tool.py`): go through the photos, see the guess with
     a sample design on it, drag the corners to fix it, set the product and front or back,
     or skip a photo. One key sets up every photo at once and jumps to the ones to check.
-    Another puts any design PNG on every set-up photo of its product.
+    Another puts any design PNG on every set-up photo of its product. Its logic is tested;
+    the window itself still needs a first try by hand.
 38. **Exports use them:** X on the lettering screen adds photo mockups of each product next to
     the drawn sheet, when photos are set up for it.
 39. Sort the bundles and copy in the good front views: start with 10–15 tees, hoodies and
