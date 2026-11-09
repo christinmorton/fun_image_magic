@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient    # noqa: E402
 
 from api.main import app                     # noqa: E402
 from core.look import Look                   # noqa: E402
+from core.overlays import fit_frame          # noqa: E402
 
 TOKEN = 'test-token-123'
 AUTH = {'Authorization': f'Bearer {TOKEN}'}
@@ -99,6 +100,44 @@ class TestCatalog(ApiTestCase):
         self.assertEqual(self.client.get('/v1/catalog/hats/0/thumbnail.png', headers=AUTH).status_code, 404)
         self.assertEqual(self.client.get('/v1/catalog/props/99/thumbnail.png', headers=AUTH).status_code, 404)
         self.assertEqual(self.client.get('/v1/catalog/props/0/thumbnail.png').status_code, 401)
+
+    def test_stickers_say_where_they_go(self):
+        # an app tracking faces itself places stickers as core/overlays.py does
+        art = self.client.app.state.art
+        stickers = self.client.get('/v1/catalog', headers=AUTH).json()['stickers']
+        for item, (_, width_factor, lift_factor) in zip(stickers, art.stickers):
+            self.assertEqual((item['width_factor'], item['lift_factor']), (width_factor, lift_factor))
+        self.assertEqual(stickers[0]['image'], '/v1/catalog/stickers/0/image.png')
+
+    def get_png(self, url):
+        response = self.client.get(url, headers=AUTH)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.headers['content-type'], 'image/png')
+        return cv2.imdecode(np.frombuffer(response.content, np.uint8), cv2.IMREAD_UNCHANGED)
+
+    def test_full_size_art(self):
+        catalog = self.client.get('/v1/catalog', headers=AUTH).json()
+        art = self.client.app.state.art
+        for kind, original in [('stickers', art.stickers[0][0]), ('mascots', art.mascots[0]),
+                               ('backgrounds', art.backgrounds[0]), ('frames', art.frames[0])]:
+            with self.subTest(kind=kind):
+                self.assertTrue(np.array_equal(self.get_png(catalog[kind][0]['image']), original))
+
+    def test_frames_fitted_to_a_photo_size(self):
+        # the same frame a render lays on a photo of that size
+        fitted = self.get_png('/v1/catalog/frames/0/image.png?width=1280&height=720')
+        self.assertEqual(fitted.shape, (720, 1280, 4))
+        self.assertTrue(np.array_equal(fitted, fit_frame(self.client.app.state.art.frames[0], 1280, 720)))
+
+    def test_full_size_art_errors(self):
+        get = lambda url: self.client.get(url, headers=AUTH).status_code
+        self.assertEqual(get('/v1/catalog/hats/0/image.png'), 404)
+        self.assertEqual(get('/v1/catalog/frames/99/image.png'), 404)
+        self.assertEqual(get('/v1/catalog/frames/0/image.png?width=640'), 422)              # height missing
+        self.assertEqual(get('/v1/catalog/stickers/0/image.png?width=640&height=480'), 422)  # only frames fit
+        self.assertEqual(get('/v1/catalog/frames/0/image.png?width=8&height=480'), 422)     # too small
+        self.assertEqual(get('/v1/catalog/frames/0/image.png?width=9000&height=480'), 422)  # too big
+        self.assertEqual(self.client.get('/v1/catalog/frames/0/image.png').status_code, 401)
 
 
 if __name__ == '__main__':

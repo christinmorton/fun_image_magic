@@ -17,6 +17,11 @@ changed, and the API is the same.
   See `web/README.md` and `docs/web-webcam-plan.md`.
 - **`tests/test_web.py`** checks that the browser's presets, filters, look defaults and
   brand colours still match `core/`.
+- **Full-size art:** `GET /v1/catalog/{kind}/{index}/image.png`, for apps that draw the
+  art themselves (the web webcam does, live). Frames take `?width=&height=` and come back
+  fitted to that size, exactly as a render lays them on a photo. The catalog's art items
+  now have an `image` link, and stickers have `width_factor` and `lift_factor` (where a
+  sticker goes on a face, measured from the outer eye corners).
 - **Fixed: fitted frames no longer pile up in memory.** `fit_frame` remembered every
   photo size it had fitted a frame to, forever. It now keeps the 32 most recent
   (`core/overlays.py`). Apps should take this.

@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Body, Depends, FastAPI, File, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, Body, Depends, FastAPI, File, HTTPException, Query, Request, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
@@ -17,13 +17,14 @@ from core import ASSETS_DIR, MODELS_DIR
 from core.ai import AI_PRESETS_BY_KEY, GeminiGenerator
 from core.asset_library import load_art
 from core.look import render as render_look
+from core.overlays import fit_frame
 from core.slots import SLOT_COUNT, Slot, Slots
 from core.tracking import Tracker
 
 from .ai_jobs import AiJobs
 from .auth import require_token
 from .limits import RateLimiter
-from .catalog import ART_KINDS, Catalog, art_images, build_catalog, thumbnail_png
+from .catalog import ART_KINDS, Catalog, art_images, build_catalog, full_png, thumbnail_png
 from .looks import ImageOptions, LookIn, encode_image, to_core_look
 from .photos import MAX_UPLOAD_BYTES, PhotoStore, decode_upload
 from .settings import (SERVICE_VERSION, ai_configured, ai_daily_limit, photo_ttl_seconds,
@@ -36,6 +37,7 @@ async def lifespan(app):
     app.state.art = load_art(ASSETS_DIR)
     app.state.catalog = build_catalog(app.state.art)
     app.state.thumbnails = {}          # (kind, index) -> PNG bytes, made on first request
+    app.state.full_images = {}         # the same, at full size
     app.state.tracker = Tracker(MODELS_DIR)
     app.state.photos = PhotoStore(app.state.tracker, photo_ttl_seconds())
     # AI runs only when a Gemini key is configured (creating the client makes no request)
@@ -108,19 +110,45 @@ def catalog(request: Request):
     # everything a user can choose, with the numbers to put in a look
     return request.app.state.catalog
 
-@v1.get('/catalog/{kind}/{index}/thumbnail.png', tags=['catalog'],
-        responses={200: {'content': {'image/png': {}}, 'description': 'A PNG thumbnail (up to 200 px)'}})
-def thumbnail(kind: str, index: int, request: Request):
+def art_picture(request, kind, index):
+    # one picture from the art library, or 404
     if kind not in ART_KINDS:
         raise HTTPException(404, f'Unknown kind "{kind}"; use one of {ART_KINDS}')
     images = art_images(request.app.state.art, kind)
     if not 0 <= index < len(images):
         raise HTTPException(404, f'No {kind} number {index}; there are {len(images)}')
+    return images[index]
+
+def png_response(data):
+    return Response(data, media_type='image/png', headers={'Cache-Control': 'public, max-age=86400'})
+
+@v1.get('/catalog/{kind}/{index}/thumbnail.png', tags=['catalog'],
+        responses={200: {'content': {'image/png': {}}, 'description': 'A PNG thumbnail (up to 200 px)'}})
+def thumbnail(kind: str, index: int, request: Request):
+    picture = art_picture(request, kind, index)
     cache = request.app.state.thumbnails
     if (kind, index) not in cache:
-        cache[(kind, index)] = thumbnail_png(images[index])
-    return Response(cache[(kind, index)], media_type='image/png',
-                    headers={'Cache-Control': 'public, max-age=86400'})
+        cache[(kind, index)] = thumbnail_png(picture)
+    return png_response(cache[(kind, index)])
+
+@v1.get('/catalog/{kind}/{index}/image.png', tags=['catalog'],
+        responses={200: {'content': {'image/png': {}}, 'description': 'The full-size picture, as PNG'}})
+def art_image(kind: str, index: int, request: Request,
+              width: int | None = Query(None, ge=16, le=4096, description='Frames only, with height: fit the frame to this size'),
+              height: int | None = Query(None, ge=16, le=4096, description='Frames only, with width')):
+    # the full-size picture, for an app that draws the art itself (e.g. live, over a camera).
+    # A frame fitted to a photo's size is exactly what a render puts on that photo.
+    picture = art_picture(request, kind, index)
+    if (width is None) != (height is None):
+        raise HTTPException(422, 'Give both width and height, or neither')
+    if width is not None:
+        if kind != 'frames':
+            raise HTTPException(422, 'Only frames can be fitted to a size (leave out width and height)')
+        return png_response(full_png(fit_frame(picture, width, height)))
+    cache = request.app.state.full_images
+    if (kind, index) not in cache:
+        cache[(kind, index)] = full_png(picture)
+    return png_response(cache[(kind, index)])
 
 
 @v1.post('/photos', status_code=201, response_model=PhotoInfo, tags=['photos'], dependencies=[Depends(rate_limited)])
