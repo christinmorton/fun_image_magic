@@ -39,9 +39,25 @@ and brand colours here still match `core/`.
 | T | Record a video up to the time limit (at most 5 minutes), or stop it early |
 | `[` `]` | The previous and next preset |
 
-Videos record the preview as you see it, with sound if it's allowed. They stay in the
-browser to play and save, since the service doesn't take videos; `onRecording` hands each
-one to the page.
+Videos record the preview as you see it, with sound if it's allowed. Each one can be played
+and saved in the browser, and **Send to the service** uploads it (`POST /v1/videos`).
+
+## Videos: the hand-off
+
+The service keeps videos but doesn't process them. It holds each one for a while (2 hours
+by default) so the app can take it:
+
+1. The page uploads the video. The reply has a `video_id` and a `file_url`.
+2. The app's server downloads `file_url` (`GET /v1/videos/{id}/file`, with the token) and
+   saves it or sends it to its cloud provider.
+3. The app deletes it from the service (`DELETE /v1/videos/{id}`). Otherwise it's deleted
+   when it expires.
+
+`onVideoUploaded` hands the reply to the page, and `onRecording` hands over each finished
+video's file, for an app that would rather upload it somewhere itself. Five minutes of
+video is about 150 MB, so the forwarding route and the server in front of it must allow
+uploads that big. The service's own limits are `VIDEO_MAX_MB` and `VIDEO_STORAGE_MB` in
+its `.env`.
 
 ## How it fits together
 
@@ -88,7 +104,8 @@ service.
    mountBooth(document.querySelector('#booth'), {
      serviceUrl: '/image-service',
      onCapture: ({ blob, look, photoId }) => { /* keep it in your app */ },
-     onRecording: ({ blob, type, duration }) => { /* upload the video to your app */ },
+     onRecording: ({ blob, type, duration }) => { /* or upload the video yourself */ },
+     onVideoUploaded: ({ video_id, file_url }) => { /* tell your server to fetch it */ },
    })
    ```
 

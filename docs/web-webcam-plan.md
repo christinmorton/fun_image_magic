@@ -131,9 +131,18 @@ were 1280 x 720 MP4s with sound, about 0.55 MB a second; the timed one had 297 f
 - Browsers slow down hidden tabs, so a recording may stall if the page isn't on screen
   (not tried).
 
+15. ✅ **Videos to the service** (2026-11-08): `POST /v1/videos` keeps an MP4 or WebM
+    video on disk for 2 hours, for the app to download from `GET /v1/videos/{id}/file`
+    and pass on to its own storage or a cloud provider, then delete. The service doesn't
+    process videos; it checks the first bytes to be sure the file is one. Limits:
+    `VIDEO_MAX_MB` (300) per video, `VIDEO_STORAGE_MB` (3000) in total, refusing new
+    uploads past it rather than deleting videos not yet fetched. Each video card has
+    **Send to the service**. Checked in Chrome: a recording sent and downloaded back
+    through `file_url` was byte-for-byte the same, and gone after the delete.
+
 ### Phase 4: React and Vue
-15. A React hook and component over the same engine.
-16. A Vue composable and component over the same engine.
+16. A React hook and component over the same engine.
+17. A Vue composable and component over the same engine.
 
 ## Open questions
 
