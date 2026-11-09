@@ -80,7 +80,30 @@ kbd {
 .service-pill.ok { color: var(--ok); }
 .service-pill.down { color: var(--down); }
 
-.actions { display: flex; align-items: center; gap: 16px; margin-top: 12px; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-top: 12px; }
+.actions.options { font-size: 0.9rem; color: var(--muted); }
+.actions label.check { display: inline-flex; align-items: center; gap: 6px; }
+.record {
+  font: inherit; font-weight: 600; padding: 10px 20px; border-radius: 999px; cursor: pointer;
+  background: transparent; color: var(--text); border: 2px solid var(--down);
+}
+.record::before { content: ""; display: inline-block; width: 0.7em; height: 0.7em; margin-right: 8px; border-radius: 50%; background: var(--down); }
+.record.recording { background: var(--down); color: #fff; }
+.record.recording::before { border-radius: 2px; background: #fff; }
+.record:disabled { opacity: 0.4; cursor: default; }
+.record kbd { margin-left: 6px; }
+
+.rec-badge {
+  position: absolute; top: 12px; left: 12px;
+  padding: 6px 12px; border-radius: 999px;
+  background: #000a; color: #fff; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+.rec-badge::before {
+  content: ""; display: inline-block; width: 0.7em; height: 0.7em; margin-right: 8px;
+  border-radius: 50%; background: var(--down); animation: blink 1s steps(2) infinite;
+}
+.rec-badge[hidden] { display: none; }
+@keyframes blink { 50% { opacity: 0.2; } }
 .capture {
   font: inherit; font-weight: 700; font-size: 1.1rem;
   padding: 12px 28px; border: 0; border-radius: 999px;
@@ -138,6 +161,8 @@ button.link { font: inherit; font-size: 0.85rem; background: none; border: 0; pa
 .capture-card img { display: block; width: 100%; border-radius: 6px; background: #000; }
 .capture-card figcaption { font-size: 0.8rem; color: var(--muted); margin-top: 6px; }
 .capture-card .render.working { opacity: 0.5; }
+.video-card { grid-template-columns: 1fr; }
+.video-card video { display: block; width: 100%; max-height: 480px; border-radius: 6px; background: #000; }
 
 .toast {
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);

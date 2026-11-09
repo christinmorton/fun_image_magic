@@ -4,14 +4,20 @@
 //   const booth = mountBooth(document.querySelector('#booth'), {
 //     serviceUrl: '/image-service',          // your server's route that forwards to the service; null = no service
 //     onCapture: ({ blob, look, photoId, render }) => { ... },   // optional: e.g. save it in your app
+//     onRecording: ({ blob, type, duration, stoppedBy }) => { ... },   // optional: each finished video
 //   })
 //   booth.destroy()                          // stops the camera and removes the booth
 //
 // The live preview runs in the browser, art and all. Each capture is uploaded once, and the
-// service's exact render of it is shown beside it.
-import { EffectRenderer, ImageServiceClient, RESOLUTIONS, WebcamBooth, builtInCatalog, listCameras } from '../src/engine/index.js'
+// service's exact render of it is shown beside it. Videos record the preview, and stay in
+// the browser (the service doesn't take videos) unless onRecording keeps them.
+import { EffectRenderer, ImageServiceClient, MAX_RECORDING_SECONDS, RESOLUTIONS, WebcamBooth, builtInCatalog,
+         formatDuration, listCameras } from '../src/engine/index.js'
 
 const TIMERS = [0, 3, 5, 10]
+// the time limits offered for a timed recording, in seconds (5 minutes at most)
+const LIMITS = [10, 15, 30, 60, 120, 180, 300].filter((s) => s <= MAX_RECORDING_SECONDS)
+const limitLabel = (s) => (s < 60 ? `${s} s` : `${s / 60} min`)
 // text from the service (names, error messages) goes into HTML, so its < & " are escaped
 const escape = (text) => String(text).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 // the art pickers: catalog list and look setting (-1 = none)
@@ -30,6 +36,7 @@ const TEMPLATE = `
         <canvas class="overlay" data-ref="overlay"></canvas>
         <div class="countdown" data-ref="countdown" aria-live="assertive"></div>
         <div class="flash" data-ref="flash"></div>
+        <div class="rec-badge" data-ref="recBadge" role="status" hidden></div>
         <p class="preview-message" data-ref="message">Starting the camera…</p>
       </div>
       <div class="status-bar">
@@ -42,9 +49,17 @@ const TEMPLATE = `
       </div>
       <div class="actions">
         <button class="capture" data-ref="capture" type="button" disabled>Capture <kbd>Space</kbd></button>
-        <label class="inline">Timer
+        <button class="record" data-ref="record" type="button" disabled>Record <kbd>R</kbd></button>
+        <button class="record" data-ref="timedRecord" type="button" disabled>Timed record <kbd>T</kbd></button>
+      </div>
+      <div class="actions options">
+        <label class="inline">Countdown
           <select data-ref="timer">${TIMERS.map((s) => `<option value="${s}" ${s === 3 ? 'selected' : ''}>${s ? `${s} s` : 'Off'}</option>`).join('')}</select>
         </label>
+        <label class="inline">Time limit
+          <select data-ref="limit">${LIMITS.map((s) => `<option value="${s}" ${s === 30 ? 'selected' : ''}>${limitLabel(s)}</option>`).join('')}</select>
+        </label>
+        <label class="inline check"><input type="checkbox" data-ref="sound" checked> Sound</label>
       </div>
     </section>
 
@@ -93,7 +108,7 @@ const TEMPLATE = `
   </div>`
 
 
-export function mountBooth(root, { serviceUrl = '/image-service', onCapture = null, mediapipe } = {}) {
+export function mountBooth(root, { serviceUrl = '/image-service', onCapture = null, onRecording = null, mediapipe } = {}) {
   root.innerHTML = TEMPLATE
   const ref = Object.fromEntries([...root.querySelectorAll('[data-ref]')].map((el) => [el.dataset.ref, el]))
   const service = serviceUrl ? new ImageServiceClient({ baseUrl: serviceUrl }) : null
@@ -102,7 +117,8 @@ export function mountBooth(root, { serviceUrl = '/image-service', onCapture = nu
   const captures = []                          // { photoId, card } newest first
   let catalog = builtInCatalog()
   let serviceReady = false
-  let busy = false
+  let busy = false                             // a countdown or upload is under way
+  let recordingMode = null                     // 'free' or 'timed' while recording
 
   const objectUrl = (blob) => {
     const url = URL.createObjectURL(blob)
@@ -181,6 +197,8 @@ export function mountBooth(root, { serviceUrl = '/image-service', onCapture = nu
   ref.device.addEventListener('change', () => startCamera())
   ref.resolutionPick.addEventListener('change', () => startCamera())
   ref.capture.addEventListener('click', () => capture())
+  ref.record.addEventListener('click', () => toggleRecording('free'))
+  ref.timedRecord.addEventListener('click', () => toggleRecording('timed'))
 
   function onKey(event) {
     if (event.target.closest('input, select, textarea') || event.ctrlKey || event.metaKey || event.altKey) return
@@ -188,6 +206,8 @@ export function mountBooth(root, { serviceUrl = '/image-service', onCapture = nu
     if (event.key === ' ') {
       event.preventDefault()
       capture()
+    } else if (event.key === 'r' || event.key === 't') {
+      toggleRecording(event.key === 'r' ? 'free' : 'timed')
     } else if (event.key === ']' || event.key === '[') {
       setLook({ preset: (booth.look.preset + (event.key === ']' ? 1 : count - 1)) % count })
     }
@@ -213,6 +233,7 @@ export function mountBooth(root, { serviceUrl = '/image-service', onCapture = nu
       ref.resolution.textContent = `${size.width} x ${size.height}`
       showMessage('')
       ref.capture.disabled = false
+      updateRecordingUi()
       await fillDevices()
     } catch (error) {
       const reasons = {
@@ -265,6 +286,7 @@ export function mountBooth(root, { serviceUrl = '/image-service', onCapture = nu
     if (busy || !booth.running) return
     busy = true
     ref.capture.disabled = true
+    updateRecordingUi()
     try {
       await countdown(Number(ref.timer.value))
       ref.flash.classList.remove('go')
@@ -283,7 +305,82 @@ export function mountBooth(root, { serviceUrl = '/image-service', onCapture = nu
     } finally {
       busy = false
       ref.capture.disabled = !booth.running
+      updateRecordingUi()
     }
+  }
+
+  // --- video --------------------------------------------------------------------------------
+  async function toggleRecording(mode) {
+    // starts a recording ('free': until stopped; 'timed': up to the time limit), or stops one
+    if (booth.recorder.recording) {
+      booth.stopRecording()                    // the recorder's 'stop' event adds the video
+      return
+    }
+    if (busy || !booth.running) return
+    busy = true
+    updateRecordingUi()
+    try {
+      await countdown(Number(ref.timer.value))
+      const limitSeconds = mode === 'timed' ? Number(ref.limit.value) : null
+      const started = await booth.startRecording({ limitSeconds, audio: ref.sound.checked })
+      recordingMode = mode
+      if (ref.sound.checked && !started.audio) toast('No microphone was allowed, so this video has no sound.')
+    } catch (error) {
+      toast(`The recording couldn't start: ${error.message}`)
+    } finally {
+      busy = false
+      updateRecordingUi()
+    }
+  }
+
+  function updateRecordingUi() {
+    const on = booth.recorder.recording
+    const button = (el, mode, label, key) => {
+      const active = on && recordingMode === mode
+      el.innerHTML = `${active ? 'Stop' : label} <kbd>${key}</kbd>`
+      el.classList.toggle('recording', active)
+      el.disabled = !booth.running || (busy && !on) || (on && !active)
+    }
+    button(ref.record, 'free', 'Record', 'R')
+    button(ref.timedRecord, 'timed', 'Timed record', 'T')
+    ref.recBadge.hidden = !on
+    // the video keeps the preview's size, so the camera can't change while recording
+    for (const el of [ref.device, ref.resolutionPick, ref.limit, ref.sound]) el.disabled = on
+  }
+
+  booth.recorder.addEventListener('tick', ({ detail }) => {
+    const { elapsed, remaining } = detail
+    ref.recBadge.textContent = remaining === null
+      ? `REC ${formatDuration(elapsed)}`
+      : `REC ${formatDuration(elapsed)} / ${formatDuration(booth.recorder.limit)} · ${formatDuration(Math.ceil(remaining))} left`
+  })
+
+  booth.recorder.addEventListener('stop', ({ detail: video }) => {
+    recordingMode = null
+    updateRecordingUi()
+    addVideoCard(video)
+    onRecording?.(video)
+  })
+
+  booth.recorder.addEventListener('error', ({ detail }) => toast(detail.message))
+
+  function addVideoCard(video) {
+    ref.resultsHint.hidden = true
+    const url = objectUrl(video.blob)
+    const card = document.createElement('li')
+    card.className = 'capture-card video-card'
+    const notes = [
+      formatDuration(video.duration), `${video.width} x ${video.height}`,
+      `${(video.blob.size / (1024 * 1024)).toFixed(1)} MB`, video.audio ? 'with sound' : 'no sound',
+      ...(video.stoppedBy === 'limit' ? ['stopped at the time limit'] : []),
+    ]
+    card.innerHTML = `
+      <figure>
+        <video src="${url}" controls playsinline preload="metadata"></video>
+        <figcaption>Video · ${notes.join(' · ')}
+          · <a href="${url}" download="recording.${video.extension}">Save</a></figcaption>
+      </figure>`
+    ref.captures.prepend(card)
   }
 
   function addCard(shot) {
