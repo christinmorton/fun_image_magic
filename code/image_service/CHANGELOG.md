@@ -14,7 +14,8 @@ changed, and the API is the same.
   then sends the captured photo to the service for the exact render. The engine
   (`web/src/engine/`) has no UI, and a vanilla HTML, CSS and JavaScript booth is built on it.
   The page's server forwards requests and adds the token, so the browser never has it.
-  See `web/README.md` and `docs/web-webcam-plan.md`.
+  Face stickers, the mascot, frames, background swap and the focus effects are drawn live
+  too. See `web/README.md` and `docs/web-webcam-plan.md`.
 - **`tests/test_web.py`** checks that the browser's presets, filters, look defaults and
   brand colours still match `core/`.
 - **Full-size art:** `GET /v1/catalog/{kind}/{index}/image.png`, for apps that draw the

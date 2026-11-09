@@ -2,7 +2,7 @@
 
 A browser version of the booth's live camera, in `code/image_service/web/`, so any web app
 can have the webcam, live effects and face tracking the desktop booth has, and use the image
-service only for the finished picture. Written 2026-11-08. **Status: Phase 1 done.**
+service only for the finished picture. Written 2026-11-08. **Status: Phases 1 and 2 done.**
 
 ---
 
@@ -84,9 +84,28 @@ out the whole picture's histogram; doing the same live would need a histogram pa
 real webcam still needs a first try by hand.
 
 ### Phase 2: Live art
-9. A route for full-size art (the catalog only has 200 px thumbnails).
-10. Face stickers drawn live on the tracked faces, frames and the mascot over the preview.
-11. Background swap and focus effects from MediaPipe's person segmenter.
+9. ✅ **Full-size art from the service:** `GET /v1/catalog/{kind}/{index}/image.png`. Frames
+   take `?width=&height=` and come back fitted by `fit_frame`, so the preview's frame is
+   exactly the render's. Sticker catalog items say where they go (`width_factor`,
+   `lift_factor`). `fit_frame` now keeps at most 32 sizes, since a page can ask for any.
+10. ✅ **Face stickers, the mascot and frames, live** (`art.js`, drawn by `effects.js`):
+    stickers are placed from the outer eye corners as `add_face_sticker` does, on every
+    tracked face, tilting with the head; before the preset for Pop Art and Mirror, after
+    it otherwise. The mascot and frame go on top. One catch: MediaPipe numbers the eye
+    corners by which side of the picture they're on, so for the mirrored preview they're
+    swapped back, or stickers would turn upside down.
+11. ✅ **Background swap and focus, live:** MediaPipe's person segmenter in video mode,
+    given a 256 px copy of each frame (the model's own size), only while a background or
+    focus effect is on. The mask is firmed up as `refine_mask` starts to (under 0.3 is
+    background, over 0.7 the person); its clean-up steps aren't copied, and the GPU's
+    smoothing of the small mask stands in for them. Colour pop, portrait blur and the mask
+    preview are drawn as in `core/masks.py`.
+
+**Checked in Chrome (2026-11-08)** with the fake camera: 29–31 fps with face tracking and
+the person segmenter both on the GPU. With sunglasses, a frame and the mascot, the live
+preview and the service's render of the capture look the same. The art pickers show the
+catalog's thumbnails. Each capture has "Render with the current look", which renders the
+uploaded photo again instead of re-rendering on every change.
 
 ### Phase 3: React and Vue
 12. A React hook and component over the same engine.

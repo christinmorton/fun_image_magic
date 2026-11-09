@@ -1,7 +1,8 @@
 # Web Webcam
 
-The booth's live camera in the browser: the webcam, live effects on the GPU and face
-tracking from frame to frame, with the image service doing the exact final render. It exists
+The booth's live camera in the browser: the webcam, live effects on the GPU, face tracking
+from frame to frame with stickers on the faces, frames, the mascot, background swap and the
+focus effects, with the image service doing the exact final render. It exists
 because the service has no camera and sees only single stills (see
 `docs/desktop-to-api-lessons.md`). The plan is `docs/web-webcam-plan.md`.
 
@@ -47,8 +48,12 @@ capture → unedited photo + look  ──POST──►   /image-service/*  ─�
                                               adds the token
 ```
 
-- **`src/engine/`**: the camera, effects, tracker and service client, with no buttons or
-  layout. `WebcamBooth` (in `booth.js`) runs the live loop. Every front end uses it.
+- **`src/engine/`**: the camera, effects, tracker and segmenter, art placement (`art.js`)
+  and service client, with no buttons or layout. `WebcamBooth` (in `booth.js`) runs the
+  live loop. Every front end uses it.
+- **The art** comes from the service's catalog at full size
+  (`/v1/catalog/{kind}/{index}/image.png`). Frames are fetched already fitted to the
+  preview's size, so they match the render exactly.
 - **`vanilla/`**: the booth in plain HTML, CSS and JavaScript. `mountBooth(element, options)`
   in `booth-ui.js` puts the whole booth into any element.
 - **React and Vue** versions come later, over the same engine.
@@ -66,10 +71,10 @@ service.
    the body, the `Content-Type` and the reply back unchanged. The event stream for AI jobs
    (`/v1/ai/jobs/{id}/events`) must not be buffered. **Never send the token to the
    browser.** `vite.config.js` shows the same proxy for development.
-2. **Serve the MediaPipe files.** `/mediapipe/models/` serves `face_landmarker.task` (from
-   `core/models/`), and `/mediapipe/wasm/` serves `vision_wasm_internal.js` and `.wasm` (from
+2. **Serve the MediaPipe files.** `/mediapipe/models/` serves `face_landmarker.task` and
+   `selfie_segmenter.tflite` (from `core/models/`), and `/mediapipe/wasm/` serves `vision_wasm_internal.js` and `.wasm` (from
    `node_modules/@mediapipe/tasks-vision/wasm/`). `npm run build` copies them into `dist/`.
-   Other paths can be passed as `mediapipe: { wasmBaseUrl, faceModelUrl }`.
+   Other paths can be passed as `mediapipe: { wasmBaseUrl, faceModelUrl, personModelUrl }`.
 3. **Mount the booth:**
 
    ```js
