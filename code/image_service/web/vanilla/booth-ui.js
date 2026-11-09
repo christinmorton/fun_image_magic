@@ -5,12 +5,14 @@
 //     serviceUrl: '/image-service',          // your server's route that forwards to the service; null = no service
 //     onCapture: ({ blob, look, photoId, render }) => { ... },   // optional: e.g. save it in your app
 //     onRecording: ({ blob, type, duration, stoppedBy }) => { ... },   // optional: each finished video
+//     onVideoUploaded: ({ video_id, file_url }) => { ... },   // optional: a video sent to the service
 //   })
 //   booth.destroy()                          // stops the camera and removes the booth
 //
 // The live preview runs in the browser, art and all. Each capture is uploaded once, and the
-// service's exact render of it is shown beside it. Videos record the preview, and stay in
-// the browser (the service doesn't take videos) unless onRecording keeps them.
+// service's exact render of it is shown beside it. Videos record the preview; "Send to the
+// service" uploads one, where the page's app can fetch it from file_url and pass it on (the
+// service keeps videos but doesn't process them).
 import { EffectRenderer, ImageServiceClient, MAX_RECORDING_SECONDS, RESOLUTIONS, WebcamBooth, builtInCatalog,
          formatDuration, listCameras } from '../src/engine/index.js'
 
@@ -108,7 +110,8 @@ const TEMPLATE = `
   </div>`
 
 
-export function mountBooth(root, { serviceUrl = '/image-service', onCapture = null, onRecording = null, mediapipe } = {}) {
+export function mountBooth(root, { serviceUrl = '/image-service', onCapture = null, onRecording = null,
+                                   onVideoUploaded = null, mediapipe } = {}) {
   root.innerHTML = TEMPLATE
   const ref = Object.fromEntries([...root.querySelectorAll('[data-ref]')].map((el) => [el.dataset.ref, el]))
   const service = serviceUrl ? new ImageServiceClient({ baseUrl: serviceUrl }) : null
@@ -378,9 +381,31 @@ export function mountBooth(root, { serviceUrl = '/image-service', onCapture = nu
       <figure>
         <video src="${url}" controls playsinline preload="metadata"></video>
         <figcaption>Video · ${notes.join(' · ')}
-          · <a href="${url}" download="recording.${video.extension}">Save</a></figcaption>
+          · <a href="${url}" download="recording.${video.extension}">Save</a>
+          ${serviceReady ? '<span data-send>· <button type="button" class="link" data-send-video>Send to the service</button></span>' : ''}
+          <span class="video-upload" data-upload-status></span></figcaption>
       </figure>`
+    card.querySelector('[data-send-video]')?.addEventListener('click', (event) => sendVideo(video, card, event.target))
     ref.captures.prepend(card)
+  }
+
+  async function sendVideo(video, card, button) {
+    // the service keeps it for a while; the page's app fetches it from file_url and passes it on
+    const status = card.querySelector('[data-upload-status]')
+    button.disabled = true
+    status.textContent = `· Sending ${(video.blob.size / (1024 * 1024)).toFixed(1)} MB…`
+    try {
+      const info = await service.uploadVideo(video.blob, { filename: `recording.${video.extension}`,
+                                                           durationSeconds: video.duration })
+      const expires = new Date(info.expires_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      card.querySelector('[data-send]').remove()
+      status.innerHTML = `· On the service as <code>${escape(info.video_id)}</code> until ${expires}
+        · <a href="${escape(service.url(info.file_url))}" download>Download from the service</a>`
+      onVideoUploaded?.(info)
+    } catch (error) {
+      button.disabled = false
+      status.innerHTML = `· <span class="error">${escape(error.message)}</span>`
+    }
   }
 
   function addCard(shot) {
