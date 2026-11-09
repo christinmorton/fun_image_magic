@@ -8,11 +8,10 @@ from pathlib import Path
 SERVICE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SERVICE_DIR))
 
-from core.styles import NEW_ORLEANS, STYLES, build_prompt     # noqa: E402
+from core.styles import (BANNED_NAMES, CUSTOM, GUARDRAILS, MAX_USER_TEXT, NEW_ORLEANS,   # noqa: E402
+                         STYLES, build_prompt, check_user_text)
 
-# names that must never reach the AI: artists, labels, design studios, albums, marks
-NEVER = ['no limit', 'cash money', 'pen & pixel', 'pen and pixel', 'master p', 'juvenile', 'lil wayne',
-         'hot boys', 'mystikal', 'parental advisory', 'riaa', '400 degreez', 'rolls', 'bentley', 'mercedes']
+NEVER = BANNED_NAMES        # names that must never reach the AI
 
 
 class TestStyles(unittest.TestCase):
@@ -55,6 +54,31 @@ class TestStyles(unittest.TestCase):
         self.assertIn('sunglasses', dressed)
         self.assertNotIn('no jewellery', dressed)
         self.assertNotIn('They wear', build_prompt(NEW_ORLEANS, 'inferno', 3))   # no choices: the AI decides
+
+    def test_the_users_own_words(self):
+        plain = build_prompt(NEW_ORLEANS, 'boss_office', 3)
+        self.assertNotIn(GUARDRAILS, plain)                               # only when the user adds words
+        detailed = build_prompt(NEW_ORLEANS, 'boss_office', 3, details='A white tiger sits beside them.')
+        self.assertIn('red velvet', detailed)                            # the scene is kept...
+        self.assertIn('white tiger', detailed)                           # ...with the details added
+        self.assertTrue(detailed.endswith(GUARDRAILS))                   # and the rules repeated last
+        custom = build_prompt(NEW_ORLEANS, CUSTOM, 3, custom_scene='On a speedboat on the lake at sunset.')
+        self.assertIn('speedboat', custom)
+        self.assertIn('late-1990s Southern rap album cover', custom)    # still the era's look
+        self.assertNotIn('red velvet', custom)
+        self.assertTrue(custom.endswith(GUARDRAILS))
+        with self.assertRaises(ValueError):
+            build_prompt(NEW_ORLEANS, CUSTOM, 3, custom_scene='  ')
+        # words typed without a full stop don't run into the next sentence
+        self.assertIn('beside them. Keep', build_prompt(NEW_ORLEANS, 'inferno', 3, details='a tiger beside them'))
+
+    def test_checking_the_users_words(self):
+        self.assertEqual(check_user_text('a white tiger and purple neon lights'), [])
+        self.assertIn('gucci', check_user_text('wearing a Gucci jacket')[0])
+        self.assertIn('rolls-royce', check_user_text('next to a Rolls-Royce')[0])
+        self.assertIn('pen & pixel', check_user_text('in the style of Pen & Pixel')[0])
+        self.assertEqual(check_user_text('a supremely shiny car'), [])   # whole words only
+        self.assertIn('too long', check_user_text('x' * (MAX_USER_TEXT + 1))[0])
 
     def test_extras_and_unknown_scenes(self):
         self.assertIn('gold rope chain', build_prompt(NEW_ORLEANS, 'boss_office', extras='They wear a gold rope chain.'))

@@ -69,6 +69,18 @@ class TestArtwork(unittest.TestCase):
                 make_previews(PICTURES, ArtworkRequest(), generator, self.spending(tmp, limit=0.10))
             self.assertEqual(generator.calls, [])
 
+    def test_banned_words_send_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            generator = FakeGenerator()
+            request = ArtworkRequest(details='A Rolex on each wrist.')
+            with self.assertRaises(ValueError):
+                make_previews(PICTURES, request, generator, self.spending(tmp))
+            self.assertEqual(generator.calls, [])
+            custom = ArtworkRequest(scene='custom', custom_scene='On a speedboat at sunset.', details='Purple lights.')
+            make_previews(PICTURES, custom, generator, self.spending(tmp))
+            self.assertIn('speedboat', generator.calls[0][0])
+            self.assertIn('Purple lights', generator.calls[0][0])
+
     def test_final_is_the_preview_made_bigger(self):
         with tempfile.TemporaryDirectory() as tmp:
             generator, spending = FakeGenerator(), self.spending(tmp)

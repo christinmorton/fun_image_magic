@@ -3,6 +3,7 @@
 # room for the lettering. The pieces describe colours, objects, light and layout; they
 # never name an artist, album, label or design studio, and always ask for no text,
 # because the lettering is drawn by the app.
+import re
 from dataclasses import dataclass
 
 
@@ -108,15 +109,57 @@ def person(references):
     return (f'{intro} is the main figure, waist-up, in the centre, facing the viewer with a confident '
             f'expression. {KEEP_LIKENESS}')
 
-def build_prompt(style, scene, references=1, extras='', clothing=None, jewellery=(), accessories=()):
+# the user's own words can add to a scene (details) or replace it (a custom scene). They're
+# checked first (check_user_text), and these rules are repeated after them, since the AI
+# leans towards whatever it read last
+CUSTOM = 'custom'
+GUARDRAILS = ('Whatever else is asked for above: no text, letters, numbers, logos, brand names or stickers '
+              'anywhere in the picture, and keep the person\'s face exactly like the reference photos.')
+MAX_USER_TEXT = 400
+# names that must never reach the AI: artists, labels, design studios, albums, the
+# Parental Advisory mark, and brands whose logos would end up on merch
+BANNED_NAMES = ['no limit', 'cash money', 'pen & pixel', 'pen and pixel', 'master p', 'juvenile', 'lil wayne',
+                'hot boys', 'mystikal', 'parental advisory', 'riaa', '400 degreez', 'rolls royce', 'rolls-royce',
+                'bentley', 'mercedes', 'lamborghini', 'ferrari', 'rolex', 'cartier', 'gucci', 'louis vuitton',
+                'versace', 'chanel', 'prada', 'nike', 'supreme', 'disney', 'marvel']
+
+
+def check_user_text(text):
+    # what's wrong with words a user wants to add to a prompt (empty list = fine). Real
+    # people can't all be listed, so famous names other than these aren't caught here
+    problems = []
+    if len(text) > MAX_USER_TEXT:
+        problems.append(f'too long: keep it under {MAX_USER_TEXT} characters')
+    lower = f' {re.sub(r"[^a-z0-9&-]+", " ", text.lower())} '
+    found = [name for name in BANNED_NAMES if f' {name} ' in lower]
+    if found:
+        problems.append(f'no real artists, labels or brands: {", ".join(found)}')
+    return problems
+
+def sentence(text):
+    # the user's words as a finished sentence, so they don't run into the next one
+    text = text.strip()
+    return text + '.' if text and text[-1] not in '.!?' else text
+
+def build_prompt(style, scene, references=1, extras='', clothing=None, jewellery=(), accessories=(),
+                 details='', custom_scene=''):
     # the full prompt for one scene of a style, for `references` photos of the person.
     # clothing / jewellery / accessories are keys of CLOTHING, JEWELLERY and ACCESSORIES
     # (with clothing=None the AI chooses, as in the likeness test); extras adds any other
-    # sentence, e.g. 'They hold a microphone.'
+    # sentence. The user's own words: scene=CUSTOM uses custom_scene as the whole scene,
+    # and details are added to any scene
     if isinstance(style, str):
         style = STYLES[style]
-    if scene not in style.scenes:
-        raise ValueError(f'unknown scene "{scene}"; use one of {list(style.scenes)}')
+    if scene == CUSTOM:
+        if not custom_scene.strip():
+            raise ValueError('a custom scene needs a description')
+        scene_text = sentence(custom_scene)
+    elif scene in style.scenes:
+        scene_text = style.scenes[scene][1]
+    else:
+        raise ValueError(f'unknown scene "{scene}"; use one of {list(style.scenes) + [CUSTOM]}')
     worn = wardrobe(clothing, jewellery, accessories) if clothing else ''
-    parts = [style.base, style.scenes[scene][1], person(references), worn, extras.strip(), style.layout_space]
+    user_words = scene == CUSTOM or details.strip()
+    parts = [style.base, scene_text, person(references), worn, sentence(details), extras.strip(), style.layout_space,
+             GUARDRAILS if user_words else '']
     return ' '.join(part for part in parts if part)

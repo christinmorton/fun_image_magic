@@ -12,7 +12,7 @@ import cv2
 
 from .ai import DEFAULT_MODEL, AiError
 from .spending import PRICES
-from .styles import build_prompt
+from .styles import CUSTOM, build_prompt, check_user_text
 
 PREVIEW_COUNT = 4
 ANGLE_ORDER = ('front', 'left', 'right')
@@ -30,10 +30,21 @@ class ArtworkRequest:
     clothing: str = 'gold_silk'         # a key of styles.CLOTHING
     jewellery: tuple = ()               # keys of styles.JEWELLERY (empty = no jewellery)
     accessories: tuple = ()             # keys of styles.ACCESSORIES
+    details: str = ''                   # the user's own words, added to the scene
+    custom_scene: str = ''              # the user's own scene (used when scene is styles.CUSTOM)
 
     def prompt(self, references):
         return build_prompt(self.style, self.scene, references, clothing=self.clothing,
-                            jewellery=self.jewellery, accessories=self.accessories)
+                            jewellery=self.jewellery, accessories=self.accessories,
+                            details=self.details, custom_scene=self.custom_scene)
+
+    def problems(self):
+        # what's wrong with the user's own words, if anything (see styles.check_user_text)
+        words = self.details + ' ' + (self.custom_scene if self.scene == CUSTOM else '')
+        found = check_user_text(words)
+        if self.scene == CUSTOM and not self.custom_scene.strip():
+            found.append('the custom scene has no description')
+        return found
 
 
 def reference_photos(pictures):
@@ -60,6 +71,8 @@ def make_previews(pictures, request, generator, spending, count=PREVIEW_COUNT):
     refs = reference_photos(pictures)
     if not refs:
         raise ValueError('the subject has no photos')
+    if request.problems():
+        raise ValueError('; '.join(request.problems()))
     spending.check(preview_cost(count))
     prompt = request.prompt(len(refs))
     with ThreadPoolExecutor(max_workers=count) as pool:
