@@ -437,6 +437,7 @@ def featuring_list(names, width, height, heading='Featuring:', colours=LIST_COLO
     return finish(bgr, alpha)
 
 STICKER_STYLES = ['badge', 'stamp', 'hazard']
+MIN_STICKER = 40            # px; smaller stickers are drawn at this size and shrunk
 
 def rounded_box(height, width, radius):
     # a soft-edged rounded rectangle filling height x width (1 inside, 0 outside)
@@ -473,6 +474,12 @@ def sticker(lines=('CERTIFIED', 'HOOD CLASSIC'), height=200, style='badge', seed
         raise ValueError('the sticker has no words')
     if style not in STICKER_STYLES:
         raise ValueError(f'unknown sticker style "{style}"; use one of {STICKER_STYLES}')
+    if height < MIN_STICKER:
+        # too small for the words to fit: draw it at the smallest workable size, then shrink
+        big = sticker(lines, MIN_STICKER, style, seed)
+        scale = height / MIN_STICKER
+        return cv2.resize(big, (max(1, round(big.shape[1] * scale)), max(1, round(big.shape[0] * scale))),
+                          interpolation=cv2.INTER_AREA)
     border = max(2, int(height * (0.12 if style == 'hazard' else 0.05)))
     margin = int(height * 0.13) + (border if style == 'hazard' else 0)
     sizes = [height * 0.2] * (len(lines) - 1) + [height * 0.36]

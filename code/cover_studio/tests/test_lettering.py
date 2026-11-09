@@ -89,6 +89,13 @@ class TestSupportingText(unittest.TestCase):
         with self.assertRaises(ValueError):
             sticker(('PARENTAL', 'ADVISORY'), 120, style='riaa')
 
+    def test_a_tiny_sticker_still_works(self):
+        for style in ('badge', 'stamp', 'hazard'):
+            with self.subTest(style=style):
+                tiny = sticker(('CERTIFIED', 'HOOD CLASSIC'), 12, style)
+                self.assertLessEqual(tiny.shape[0], 18)                  # about the size asked for (the stamp tilts)
+                self.assertGreater(tiny[..., 3].max(), 0)
+
     def test_sticker_styles(self):
         badge = sticker(('CERTIFIED', 'HOOD CLASSIC'), 120, 'badge')
         # the gold border runs along the straight edges too, not only round the corners
