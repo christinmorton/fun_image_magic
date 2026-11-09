@@ -39,7 +39,7 @@ class TestProducts(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_every_product_has_a_real_spec(self):
-        self.assertEqual({p.key for p in PRODUCTS}, {'poster', 'tee', 'hoodie', 'phone'})
+        self.assertEqual({p.key for p in PRODUCTS}, {'poster', 'tee', 'hoodie', 'sweatshirt', 'phone'})
         for p in PRODUCTS:
             self.assertGreaterEqual(min(p.width, p.height), 1500)          # print sizes, not screen sizes
 

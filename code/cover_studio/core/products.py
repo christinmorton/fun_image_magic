@@ -1,5 +1,5 @@
 # products: turning a saved design into a print file for each product - a poster, a
-# t-shirt, a hoodie and a phone case. The artwork is upscaled for print (core/upscale.py)
+# t-shirt, a hoodie, a sweatshirt and a phone case. The artwork is upscaled for print (core/upscale.py)
 # and the lettering redrawn at full size from the design's recipe, so nothing is
 # stretched. Files go to exports/<design>/ (kept on this machine) as 300 dpi PNGs, with a
 # sheet of mockups. The print sizes are common print-on-demand sizes, to confirm with
@@ -36,6 +36,7 @@ PRODUCTS = [
     Product('poster', 'Poster, 18 x 24 in', 5400, 7200, 'poster'),
     Product('tee', 'T-shirt front, 15 x 18 in', 4500, 5400, 'garment'),
     Product('hoodie', 'Hoodie front, 14 x 12 in (above the pocket)', 4200, 3600, 'garment'),
+    Product('sweatshirt', 'Sweatshirt front, 14 x 16 in', 4200, 4800, 'garment'),
     Product('phone', 'Phone case, tall', 1500, 3000, 'case'),
 ]
 PRODUCTS_BY_KEY = {p.key: p for p in PRODUCTS}
