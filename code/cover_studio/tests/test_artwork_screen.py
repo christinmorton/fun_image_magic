@@ -168,6 +168,27 @@ class TestArtworkScreen(unittest.TestCase):
         self.assertEqual(self.generator.calls, [])
         self.assertIn('Lil Ray', crew.message)
 
+    def test_choosing_the_region(self):
+        screen = self.screen(typed=['On a speedboat at sunset.'])
+        self.assertEqual((screen.request.style, screen.request.scene), ('new_orleans', 'inferno'))
+        screen.handle_key(ord('r'))
+        self.assertEqual((screen.request.style, screen.request.scene), ('memphis', 'graveyard'))
+        self.assertNotIn('crew_mist', screen.scenes())                  # crew scenes only for crews
+        screen.handle_key(ord('g'))
+        screen.poll()
+        self.assertIn('Memphis underground', self.generator.calls[0][0])
+        while screen.request.scene != 'custom':                          # a custom scene stays when the region changes
+            screen.handle_key(ord('s'))
+        screen.handle_key(ord('r'))
+        self.assertEqual((screen.request.style, screen.request.scene), ('houston', 'custom'))
+        screen.handle_key(ord('r'))
+        screen.handle_key(ord('r'))
+        self.assertEqual(screen.request.style, 'new_orleans')            # round to the start
+        other = save_subject('Lil Ray', PICTURES, consent=True, subjects_dir=self.folder.parent)
+        crew = ArtworkScreen([self.folder, other], lambda: self.generator, self.spending)
+        crew.handle_key(ord('r'))
+        self.assertEqual(crew.request.scene, 'crew_mist')                # each region's crew scene first
+
     def test_screen_draws_before_and_after(self):
         screen = self.screen()
         before = screen.screen()

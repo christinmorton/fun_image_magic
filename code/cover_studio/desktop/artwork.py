@@ -113,7 +113,8 @@ class ArtworkScreen:
         self.infos, self.people = [info for info, _ in loaded], [pictures for _, pictures in loaded]
         self.info, self.pictures = self.infos[0], self.people[0]    # the (first) person
         self.crew = len(self.folders) > 1
-        self.request = ArtworkRequest(scene='crew_lineup' if self.crew else 'inferno')
+        self.request = ArtworkRequest()
+        self.request = replace(self.request, scene=self.scenes()[0])
         self.make_generator = make_generator          # made on first use, so the screen opens without a key
         self.generator = None
         self.spending, self.confirm, self.choose_extras = spending, confirm, choose_extras
@@ -123,12 +124,22 @@ class ArtworkScreen:
         self.picked = None                            # the chosen preview's number (1-4)
         self.finals = {}                              # preview number -> its final
         self.busy = None                              # (what, started) while the AI works
-        self.message = 'S scene (or Custom), D your own details, C clothes, J jewellery, then G to make previews'
+        self.message = 'R style, S scene (or Custom), D your own details, C clothes, J jewellery, then G'
         self._done = None                             # finished background work, for poll()
 
     def scenes(self):
-        # the style's scenes (crew scenes only for crews), then Custom
-        return [s for s in STYLES[self.request.style].scenes if self.crew or s not in CREW_SCENES] + [CUSTOM]
+        # the style's scenes, then Custom. Crew scenes are only for crews, and come first for them
+        scenes = [s for s in STYLES[self.request.style].scenes if self.crew or s not in CREW_SCENES]
+        return sorted(scenes, key=lambda s: s not in CREW_SCENES) + [CUSTOM] if self.crew else scenes + [CUSTOM]
+
+    def next_style(self):
+        # R: the next region; it starts on its first scene (a crew scene for a crew), and the
+        # clothes, jewellery and the user's own words stay
+        style = next_in(list(STYLES), self.request.style)
+        self.request = replace(self.request, style=style, scene=CUSTOM if self.request.scene == CUSTOM else '')
+        if self.request.scene != CUSTOM:
+            self.request = replace(self.request, scene=self.scenes()[0])
+        self.message = f'Style: {STYLES[style].name}'
 
     def names(self):
         return ', '.join(info['name'] for info in self.infos)
@@ -182,6 +193,8 @@ class ArtworkScreen:
             return None
         if k == 's':
             self.next_scene()
+        elif k == 'r':
+            self.next_style()
         elif k == 'd':
             self.edit_details()
         elif k == 'c':
@@ -314,8 +327,7 @@ class ArtworkScreen:
         lines = [(title, WHITE, 0.8, 2)]
         if self.crew:
             lines.append((self.names(), GOLD, 0.5, 1))
-        lines += [
-                 (f'Style: {style.name}', GREY, 0.5, 1),
+        lines += [(f'R  Style: {style.name}', WHITE, 0.55, 1),
                  (f'S  Scene: {self.scene_name()}', WHITE, 0.55, 1)]
         if self.request.scene == CUSTOM:
             lines.append((f'   {short(self.request.custom_scene)}', GOLD, 0.5, 1))
