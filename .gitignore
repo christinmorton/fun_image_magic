@@ -15,6 +15,10 @@ code/cover_studio/exports/
 code/cover_studio/spending.json
 # upscaling models: too big for git; tools/get_upscale_models.py fetches them
 code/cover_studio/core/models/upscale/
+# photo mockup models (tools/get_mockup_models.py fetches them), and the mockup photos:
+# bought, and licensed for showing our designs but not for sharing
+code/cover_studio/core/models/mockups/
+code/cover_studio/mockup_photos/
 __pycache__/
 # API keys: never commit them (.env.example has the names only, no values)
 .env

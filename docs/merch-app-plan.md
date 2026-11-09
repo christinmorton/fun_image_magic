@@ -271,6 +271,32 @@ re-made this way, with the face clear of the name.
     final print files, and a checklist (consent, proof approved, files sent, scans deleted).
 33. This is what you'd use to fill hand-run Etsy orders before any website exists.
 
+### Phase 8: Photo mockups (added 2026-11-09)
+The drawn mockups (step 28) show where a design goes, but they don't sell it. The owner
+bought two Etsy mockup bundles (in `resources/`, zipped): photos of models in blank tees,
+hoodies and sweatshirts. The licence covers showing our own designs on them, not sharing
+the photos, so **they never go into git**: chosen photos are copied into the gitignored
+`mockup_photos/` folder.
+
+34. ✅ **A sweatshirt product** for the crewneck photos (Gildan 18000), 14 x 16 in, to confirm
+    with the provider like the others.
+35. ✅ **Where the print goes, guessed** (`core/photo_mockups.py`): MediaPipe's pose model finds
+    the shoulders and hips, and the product's print area is placed on the chest from them,
+    at its real size. A second model marks which pixels are clothes, so hands, hair and
+    bags in front of the shirt stay in front of the print. It also guesses front or back
+    and the garment's colour, and flags photos to check by hand (arms in the way, a turned
+    body, no person found).
+36. ✅ **Printed, not pasted:** the design is warped into the four corners, bent a little by the
+    fabric's folds, shaded by them and given the fabric's texture.
+37. **The mockup tool** (`desktop/mockup_tool.py`): go through the photos, see the guess with
+    a sample design on it, drag the corners to fix it, set the product and front or back,
+    or skip a photo. One key sets up every photo at once and jumps to the ones to check.
+    Another puts any design PNG on every set-up photo of its product.
+38. **Exports use them:** X on the lettering screen adds photo mockups of each product next to
+    the drawn sheet, when photos are set up for it.
+39. Sort the bundles and copy in the good front views: start with 10–15 tees, hoodies and
+    sweatshirts.
+
 ---
 
 ## Costs
