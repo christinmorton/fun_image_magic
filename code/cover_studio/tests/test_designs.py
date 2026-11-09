@@ -15,6 +15,7 @@ sys.path.insert(0, str(SERVICE_DIR))
 
 from core.cover_layout import CoverWords, draw_cover_lettering, square_crop   # noqa: E402
 from core.designs import load_recipe, save_lettering, slug                    # noqa: E402
+from core.framing import Framing                                              # noqa: E402
 
 WORDS = CoverWords(name='Big Mike!', title='BOSS LIFE', featuring=('Dre', 'Mama Jo'))
 
@@ -46,6 +47,10 @@ class TestDesigns(unittest.TestCase):
             self.assertEqual(cv2.imread(str(folder / 'artwork.png')).shape, (400, 400, 3))
             self.assertEqual(cv2.imread(str(folder / 'cover.jpg')).shape, (400, 400, 3))
             self.assertEqual(load_recipe(folder)['finishes']['artwork'], 'print')
+            moved = save_lettering(WORDS, 'hero', print_size=300, picture=art, designs_dir=Path(tmp),
+                                   framing=Framing(zoom=0.9, dy=0.1))
+            self.assertEqual(load_recipe(moved)['framing'], {'zoom': 0.9, 'dx': 0.0, 'dy': 0.1})
+            self.assertEqual(load_recipe(folder)['framing'], {'zoom': 1.0, 'dx': 0.0, 'dy': 0.0})
             plain = save_lettering(WORDS, 'hero', print_size=300, designs_dir=Path(tmp))
             self.assertFalse((plain / 'cover.jpg').exists())                 # only with real artwork
 

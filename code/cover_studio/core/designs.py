@@ -13,6 +13,7 @@ from . import CORE_DIR
 from .cover_layout import (LAYOUTS, PIECES, CoverWords, apply_lettering, draw_cover_lettering, placeholder,
                            square_crop)
 from .finish import age
+from .framing import Framing, frame_artwork
 
 PARTS = PIECES + ['artwork']        # everything that can have its own finish (artwork = the picture)
 
@@ -35,31 +36,32 @@ def new_folder(designs_dir, name):
     return folder
 
 def save_lettering(words, layout, styles=None, seed=0, picture=None, print_size=PRINT_SIZE,
-                   designs_dir=DESIGNS_DIR, finishes=None, strength=1.0):
+                   designs_dir=DESIGNS_DIR, finishes=None, strength=1.0, framing=None):
     # draws the lettering at print size, each part aged with its own finish (see
     # core/finish.py; e.g. {'name': 'vhs', 'artwork': 'print'}), and saves it with a preview
     # and its recipe; returns the new folder. picture is the BGR picture behind it (None =
-    # a placeholder); a real picture is also saved, with the whole cover at its size
+    # a placeholder); a real picture is saved as it came, with the whole cover at its size.
+    # framing moves and zooms the picture under the lettering (core/framing.py)
+    framing = framing or Framing()
     styles = {**LAYOUTS[layout].styles, **(styles or {})}
     finishes = {part: (finishes or {}).get(part, 'clean') for part in PARTS}
     folder = new_folder(designs_dir, words.name)
     lettering = draw_cover_lettering(words, layout, print_size, styles, seed, finishes, strength)
     cv2.imwrite(str(folder / 'lettering.png'), lettering)
     if picture is not None:
-        art = square_crop(picture)
-        cv2.imwrite(str(folder / 'artwork.png'), art)
-        side = art.shape[0]
-        cover = apply_lettering(age(art, finishes['artwork'], strength, seed),
+        cv2.imwrite(str(folder / 'artwork.png'), square_crop(picture))
+        side = min(picture.shape[:2])
+        cover = apply_lettering(age(frame_artwork(picture, side, framing), finishes['artwork'], strength, seed),
                                 cv2.resize(lettering, (side, side), interpolation=cv2.INTER_AREA))
         cv2.imwrite(str(folder / 'cover.jpg'), cover, [cv2.IMWRITE_JPEG_QUALITY, 94])
+        art = frame_artwork(picture, PREVIEW_SIZE, framing)
     else:
         art = placeholder(PREVIEW_SIZE, 4 if layout == 'crew_row' else 1)
-    art = age(cv2.resize(art, (PREVIEW_SIZE, PREVIEW_SIZE), interpolation=cv2.INTER_AREA),
-              finishes['artwork'], strength, seed, unit_size=PREVIEW_SIZE)
+    art = age(art, finishes['artwork'], strength, seed, unit_size=PREVIEW_SIZE)
     small = cv2.resize(lettering, (PREVIEW_SIZE, PREVIEW_SIZE), interpolation=cv2.INTER_AREA)
     cv2.imwrite(str(folder / 'preview.jpg'), apply_lettering(art, small), [cv2.IMWRITE_JPEG_QUALITY, 92])
     recipe = {'words': asdict(words), 'layout': layout, 'styles': styles, 'seed': seed,
-              'finishes': finishes, 'strength': strength,
+              'finishes': finishes, 'strength': strength, 'framing': asdict(framing),
               'print_size': print_size, 'created': datetime.now().isoformat(timespec='seconds')}
     (folder / 'recipe.json').write_text(json.dumps(recipe, indent=2), encoding='utf-8')
     return folder
@@ -74,4 +76,5 @@ def load_recipe(folder):
         one = recipe.pop('finish', 'clean')
         recipe['finishes'] = {part: one for part in PARTS}
     recipe.setdefault('strength', 1.0)
+    recipe.setdefault('framing', {'zoom': 1.0, 'dx': 0.0, 'dy': 0.0})     # saved before framing existed
     return recipe

@@ -14,6 +14,7 @@ from . import CORE_DIR
 from .cover_layout import CoverLayout, Spot, apply_lettering, draw_cover_lettering, placeholder, square_crop
 from .designs import load_recipe
 from .finish import age
+from .framing import Framing, blurred_fill, frame_artwork
 from .mockups import mockup_sheet
 from .upscale import upscale
 
@@ -62,11 +63,14 @@ def load_design(folder):
     art = cv2.imread(str(folder / 'artwork.png')) if (folder / 'artwork.png').exists() else None
     return Design(folder, load_recipe(folder), art)
 
-def artwork_at(design, side, quality='fast'):
-    # the design's artwork, upscaled to side x side and aged with its finish
+def artwork_at(design, side, quality='fast', framed=True):
+    # the design's artwork, upscaled to side x side, moved and zoomed as the design says
+    # (framed=False: as the AI made it) and aged with its finish
     r = design.recipe
     if design.artwork is None:
         art = placeholder(side, 4 if r['layout'] == 'crew_row' else 1)
+    elif framed:
+        art = frame_artwork(design.artwork, side, Framing(**r['framing']), quality)
     else:
         art = upscale(square_crop(design.artwork), side, side, quality)
     return age(art, r['finishes'].get('artwork', 'clean'), r['strength'], r['seed'], unit_size=side)
@@ -76,16 +80,6 @@ def cover_at(design, side, quality='fast'):
     r = design.recipe
     lettering = draw_cover_lettering(r['words'], r['layout'], side, r['styles'], r['seed'], r['finishes'], r['strength'])
     return apply_lettering(artwork_at(design, side, quality), lettering)
-
-def blurred_fill(img, width, height, darken=0.55):
-    # img zoomed to cover width x height, heavily blurred and darkened: a background that
-    # carries the artwork's colours out to the edges
-    scale = max(width / img.shape[1], height / img.shape[0])
-    big = cv2.resize(img, (int(img.shape[1] * scale) + 1, int(img.shape[0] * scale) + 1), interpolation=cv2.INTER_AREA)
-    y, x = (big.shape[0] - height) // 2, (big.shape[1] - width) // 2
-    small = cv2.resize(big[y:y + height, x:x + width], (max(1, width // 8), max(1, height // 8)), interpolation=cv2.INTER_AREA)
-    soft = cv2.GaussianBlur(small, (0, 0), max(width, height) / 160)
-    return (cv2.resize(soft, (width, height), interpolation=cv2.INTER_CUBIC) * darken).astype(np.uint8)
 
 def make_product(product, design, quality='fast'):
     # the print file for one product: BGR (poster, case) or BGRA (garments, see-through
@@ -104,9 +98,10 @@ def make_product(product, design, quality='fast'):
         y = (h - w) // 2
         out[y:y + w] = cover
         return out
-    # case: the artwork in the middle over its own blurred fill, then the tall layout's lettering
+    # case: the artwork in the middle over its own blurred fill, then the tall layout's
+    # lettering (its name sits above the artwork, so the artwork isn't moved)
     r = design.recipe
-    art = artwork_at(design, w, quality)
+    art = artwork_at(design, w, quality, framed=False)
     out = blurred_fill(art, w, h)
     y = int(h * CASE_ART_TOP)
     out[y:y + w] = art
