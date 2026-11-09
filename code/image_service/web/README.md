@@ -1,0 +1,119 @@
+# Web Webcam
+
+The booth's live camera in the browser: the webcam, live effects on the GPU, face tracking
+from frame to frame with stickers on the faces, frames, the mascot, background swap and the
+focus effects, with the image service doing the exact final render. It exists
+because the service has no camera and sees only single stills (see
+`docs/desktop-to-api-lessons.md`). The plan is `docs/web-webcam-plan.md`.
+
+## Run it
+
+You need Node 20 or newer and the image service running.
+
+```powershell
+# from code/image_service/: the service (it needs IMAGE_SERVICE_TOKEN in .env)
+.\.venv\Scripts\python.exe -m uvicorn api.main:app --port 8000
+
+# from code/image_service/web/, in a second window
+npm install          # the first time
+npm run dev          # then open http://localhost:5173/vanilla/
+```
+
+Without the service the page still works, with the live preview only.
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | The dev server, with the proxy to the service |
+| `npm test` | The engine tests (no browser or camera needed) |
+| `npm run build` | A production build in `dist/`, including the MediaPipe files |
+
+`tests/test_web.py` (in the Python suite) checks that the presets, filters, look defaults
+and brand colours here still match `core/`.
+
+## The keys
+
+| Key | Does |
+| --- | --- |
+| Space | Capture a photo (after the countdown) |
+| R | Record a video, or stop it |
+| T | Record a video up to the time limit (at most 5 minutes), or stop it early |
+| `[` `]` | The previous and next preset |
+
+Videos record the preview as you see it, with sound if it's allowed. Each one can be played
+and saved in the browser, and **Send to the service** uploads it (`POST /v1/videos`).
+
+## Videos: the hand-off
+
+The service keeps videos but doesn't process them. It holds each one for a while (2 hours
+by default) so the app can take it:
+
+1. The page uploads the video. The reply has a `video_id` and a `file_url`.
+2. The app's server downloads `file_url` (`GET /v1/videos/{id}/file`, with the token) and
+   saves it or sends it to its cloud provider.
+3. The app deletes it from the service (`DELETE /v1/videos/{id}`). Otherwise it's deleted
+   when it expires.
+
+`onVideoUploaded` hands the reply to the page, and `onRecording` hands over each finished
+video's file, for an app that would rather upload it somewhere itself. Five minutes of
+video is about 150 MB, so the forwarding route and the server in front of it must allow
+uploads that big. The service's own limits are `VIDEO_MAX_MB` and `VIDEO_STORAGE_MB` in
+its `.env`.
+
+## How it fits together
+
+```
+browser                                       your server              image service
+───────                                       ───────────              ─────────────
+camera → live effects (WebGL) → preview
+       → face tracking (MediaPipe, video mode)
+capture → unedited photo + look  ──POST──►   /image-service/*  ──►    /v1/photos, /v1/render
+                                              adds the token
+```
+
+- **`src/engine/`**: the camera, effects, tracker and segmenter, art placement (`art.js`)
+  and service client, with no buttons or layout. `WebcamBooth` (in `booth.js`) runs the
+  live loop. Every front end uses it.
+- **The art** comes from the service's catalog at full size
+  (`/v1/catalog/{kind}/{index}/image.png`). Frames are fetched already fitted to the
+  preview's size, so they match the render exactly.
+- **`vanilla/`**: the booth in plain HTML, CSS and JavaScript. `mountBooth(element, options)`
+  in `booth-ui.js` puts the whole booth into any element.
+- **React and Vue** versions come later, over the same engine.
+
+The live preview is close to the service's render but not identical. A few presets use
+shortcuts a shader can do in one pass. Night Vision and X-Ray are the furthest off, because
+OpenCV evens out each picture's histogram. The finished picture always comes from the
+service.
+
+## Putting it in another app
+
+1. **Forward a route to the service.** The page calls paths like
+   `/image-service/v1/render`. Your server forwards each one to the service at the same
+   path without the prefix, adding `Authorization: Bearer <IMAGE_SERVICE_TOKEN>`. It passes
+   the body, the `Content-Type` and the reply back unchanged. The event stream for AI jobs
+   (`/v1/ai/jobs/{id}/events`) must not be buffered. **Never send the token to the
+   browser.** `vite.config.js` shows the same proxy for development.
+2. **Serve the MediaPipe files.** `/mediapipe/models/` serves `face_landmarker.task` and
+   `selfie_segmenter.tflite` (from `core/models/`), and `/mediapipe/wasm/` serves `vision_wasm_internal.js` and `.wasm` (from
+   `node_modules/@mediapipe/tasks-vision/wasm/`). `npm run build` copies them into `dist/`.
+   Other paths can be passed as `mediapipe: { wasmBaseUrl, faceModelUrl, personModelUrl }`.
+3. **Mount the booth:**
+
+   ```js
+   import { mountBooth } from './vanilla/booth-ui.js'
+   mountBooth(document.querySelector('#booth'), {
+     serviceUrl: '/image-service',
+     onCapture: ({ blob, look, photoId }) => { /* keep it in your app */ },
+     onRecording: ({ blob, type, duration }) => { /* or upload the video yourself */ },
+     onVideoUploaded: ({ video_id, file_url }) => { /* tell your server to fetch it */ },
+   })
+   ```
+
+   If the page sends a CSRF token or session header to your server, use the engine's
+   `ImageServiceClient({ baseUrl, headers })` directly.
+
+The camera needs `https`, or `localhost` during development.
+
+**Rate limit:** the service counts requests per client IP. When your server forwards for
+every user, they all share one IP, so `RATE_LIMIT_PER_MINUTE` in the service `.env` applies
+to all of them together.

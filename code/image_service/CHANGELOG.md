@@ -6,7 +6,34 @@ made from an older template should take it, and which files it touches. The vers
 
 ## Unreleased
 
-Nothing yet.
+**For apps:** take `web/` if your app needs the live camera in a browser. Nothing else
+changed, and the API is the same.
+
+- **Web webcam (`web/`):** a Vite project with the booth's live camera in the browser. It
+  runs the camera, live effects for every preset (WebGL) and face tracking in video mode,
+  then sends the captured photo to the service for the exact render. The engine
+  (`web/src/engine/`) has no UI, and a vanilla HTML, CSS and JavaScript booth is built on it.
+  The page's server forwards requests and adds the token, so the browser never has it.
+  Face stickers, the mascot, frames, background swap and the focus effects are drawn live
+  too, and the preview can be recorded as video (until stopped, or up to a time limit of
+  at most 5 minutes). See `web/README.md` and `docs/web-webcam-plan.md`.
+- **`tests/test_web.py`** checks that the browser's presets, filters, look defaults and
+  brand colours still match `core/`.
+- **Video uploads:** `POST /v1/videos` keeps a recorded MP4 or WebM video for a while (2
+  hours by default) so the app can fetch it (`GET /v1/videos/{id}/file`) and pass it on to
+  its own storage or a cloud provider, then delete it (`DELETE /v1/videos/{id}`, or
+  `DELETE /v1/videos` for all). The service doesn't process videos; it checks the file's
+  first bytes to be sure it is one. Videos are kept on disk (`VIDEO_DIR`), with a size limit
+  per video (`VIDEO_MAX_MB`, 300) and in total (`VIDEO_STORAGE_MB`, 3000); past the total,
+  new uploads are refused (507) rather than old ones deleted. New file: `api/videos.py`.
+- **Full-size art:** `GET /v1/catalog/{kind}/{index}/image.png`, for apps that draw the
+  art themselves (the web webcam does, live). Frames take `?width=&height=` and come back
+  fitted to that size, exactly as a render lays them on a photo. The catalog's art items
+  now have an `image` link, and stickers have `width_factor` and `lift_factor` (where a
+  sticker goes on a face, measured from the outer eye corners).
+- **Fixed: fitted frames no longer pile up in memory.** `fit_frame` remembered every
+  photo size it had fitted a frame to, forever. It now keeps the 32 most recent
+  (`core/overlays.py`). Apps should take this.
 
 ## 0.2.0 (2026-11-02): the first template
 

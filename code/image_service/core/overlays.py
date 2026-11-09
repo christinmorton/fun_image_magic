@@ -1,25 +1,34 @@
 # overlays: things laid over or behind the photo - branded frames, face stickers,
 # the mascot, and the background swap. Frames, stickers and the mascot are BGRA images
 # (the 4th channel is transparency).
+import threading
+
 import cv2
 import numpy as np
 
 
 _fitted_frames = {}   # (frame, width, height) -> fitted frame, so each size is only worked out once
+MAX_FITTED_FRAMES = 32  # the oldest are forgotten beyond this, so many photo sizes can't fill the memory
+_fitted_lock = threading.Lock()   # the API fits frames on several threads at once
 
 def fit_frame(frame, w, h):
     # resize a frame to w x h without squashing its corners, captions or badges:
     # scale it evenly until it fits the tighter direction, then lengthen the other
     # direction by repeating only plain rows/columns (ones that match their neighbour)
     key = (id(frame), w, h)
-    if key not in _fitted_frames:
+    with _fitted_lock:
+        fitted = _fitted_frames.get(key)
+    if fitted is None:
         fh, fw = frame.shape[:2]
         scale = min(w / fw, h / fh)
         fitted = cv2.resize(frame, (max(round(fw * scale), 1), max(round(fh * scale), 1)), interpolation=cv2.INTER_AREA)
         fitted = _lengthen(fitted, w, axis=1)
         fitted = _lengthen(fitted, h, axis=0)
-        _fitted_frames[key] = fitted
-    return _fitted_frames[key]
+        with _fitted_lock:
+            while len(_fitted_frames) >= MAX_FITTED_FRAMES:
+                _fitted_frames.pop(next(iter(_fitted_frames)))   # forget the oldest
+            _fitted_frames[key] = fitted
+    return fitted
 
 def _lengthen(img, length, axis):
     # make img `length` long along axis (1 = width, 0 = height) by repeating plain lines

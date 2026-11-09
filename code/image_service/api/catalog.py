@@ -20,6 +20,15 @@ class CatalogItem(BaseModel):
     name: str
     thumbnail: str | None = None       # a /v1/... URL for the picture, when there is one
 
+class ArtItem(CatalogItem):
+    image: str                         # a /v1/... URL for the full-size picture (frames: add ?width=&height=)
+
+class StickerItem(ArtItem):
+    # where a face sticker goes, so an app can place it on faces it tracks itself
+    # (core/overlays.py add_face_sticker): measured from the outer eye corners
+    width_factor: float                # the sticker's width, compared to the distance between them
+    lift_factor: float                 # how far above them its centre is, in the same units (negative = below)
+
 class AiPresetItem(BaseModel):
     key: str                           # what to send to POST /v1/ai/jobs, e.g. "comic"
     name: str
@@ -30,11 +39,11 @@ class Catalog(BaseModel):
     filters: list[CatalogItem]         # the course's convolution kernels (look "kernel")
     focus_modes: list[CatalogItem]     # look "focus"; 0 = off
     layouts: list[CatalogItem]         # for strips and grids
-    stickers: list[CatalogItem]        # look "sticker"; -1 = off
-    backgrounds: list[CatalogItem]     # look "background"; -1 = off
-    frames: list[CatalogItem]          # look "frame"; -1 = off
-    mascots: list[CatalogItem]         # look "mascot" (mascot poses); -1 = off
-    props: list[CatalogItem]           # "prop" inside each entry of look "props"
+    stickers: list[StickerItem]        # look "sticker"; -1 = off
+    backgrounds: list[ArtItem]         # look "background"; -1 = off
+    frames: list[ArtItem]              # look "frame"; -1 = off
+    mascots: list[ArtItem]             # look "mascot" (mascot poses); -1 = off
+    props: list[ArtItem]               # "prop" inside each entry of look "props"
     ai_presets: list[AiPresetItem]     # for POST /v1/ai/jobs
     off: int = -1                      # the value that switches a sticker, background, frame or mascot off
     look_defaults: dict                # a look with nothing changed
@@ -51,23 +60,33 @@ def art_images(art, kind):
     }[kind]
 
 def build_catalog(art):
-    def items(names, kind=None):
-        return [CatalogItem(index=i, name=name,
-                            thumbnail=f'/v1/catalog/{kind}/{i}/thumbnail.png' if kind else None)
+    def items(names):
+        return [CatalogItem(index=i, name=name) for i, name in enumerate(names)]
+    def art_items(names, kind, item=ArtItem, extra=lambda i: {}):
+        return [item(index=i, name=name, thumbnail=f'/v1/catalog/{kind}/{i}/thumbnail.png',
+                     image=f'/v1/catalog/{kind}/{i}/image.png', **extra(i))
                 for i, name in enumerate(names)]
+    def placement(i):
+        _, width_factor, lift_factor = art.stickers[i]
+        return {'width_factor': width_factor, 'lift_factor': lift_factor}
     return Catalog(
         presets=items([name for name, _ in PRESETS]),
         filters=items(KERNEL_NAMES),
         focus_modes=items(FOCUS_MODES),
         layouts=items([layout.lower() for layout in LAYOUTS]),
-        stickers=items(art.sticker_names, 'stickers'),
-        backgrounds=items(art.background_names, 'backgrounds'),
-        frames=items(art.frame_names, 'frames'),
-        mascots=items(art.mascot_names, 'mascots'),
-        props=items(art.prop_names, 'props'),
+        stickers=art_items(art.sticker_names, 'stickers', StickerItem, placement),
+        backgrounds=art_items(art.background_names, 'backgrounds'),
+        frames=art_items(art.frame_names, 'frames'),
+        mascots=art_items(art.mascot_names, 'mascots'),
+        props=art_items(art.prop_names, 'props'),
         ai_presets=[AiPresetItem(key=p.key, name=p.name, kind=p.kind) for p in AI_PRESETS],
         look_defaults={**asdict(Look()), 'props': []},
     )
+
+def full_png(img):
+    # the picture at full size, as PNG, keeping transparency
+    ok, png = cv2.imencode('.png', img)
+    return png.tobytes()
 
 def thumbnail_png(img):
     # shrink to fit THUMBNAIL_SIZE (never enlarge) and encode as PNG, keeping transparency
