@@ -80,8 +80,8 @@ web/
 and rendered in 50–90 ms. Each preset's preview was compared with the service's render of
 the same frame. Most match closely. Watercolor and Neon were redrawn after the first
 comparison. Night Vision and X-Ray are still brighter on the service, because OpenCV evens
-out the whole picture's histogram; doing the same live would need a histogram pass. A
-real webcam still needs a first try by hand.
+out the whole picture's histogram; doing the same live would need a histogram pass.
+**Tried by the owner with a real webcam (2026-11-08): it works.**
 
 ### Phase 2: Live art
 9. ✅ **Full-size art from the service:** `GET /v1/catalog/{kind}/{index}/image.png`. Frames
@@ -106,10 +106,18 @@ the person segmenter both on the GPU. With sunglasses, a frame and the mascot, t
 preview and the service's render of the capture look the same. The art pickers show the
 catalog's thumbnails. Each capture has "Render with the current look", which renders the
 uploaded photo again instead of re-rendering on every change.
+**Tried by the owner with a real webcam (2026-11-08): it works.**
 
-### Phase 3: React and Vue
-12. A React hook and component over the same engine.
-13. A Vue composable and component over the same engine.
+### Phase 3: Video recording
+12. **Record** button: records until it's pressed again.
+13. **Timed record** button: records for a chosen time, up to 5 minutes, then stops by
+    itself, with the time left on screen.
+14. Recordings show in the captures list to play and save. The service doesn't take
+    videos, so they stay in the browser unless the page's own app keeps them.
+
+### Phase 4: React and Vue
+15. A React hook and component over the same engine.
+16. A Vue composable and component over the same engine.
 
 ## Open questions
 
