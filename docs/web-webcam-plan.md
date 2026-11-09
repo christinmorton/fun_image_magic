@@ -2,7 +2,7 @@
 
 A browser version of the booth's live camera, in `code/image_service/web/`, so any web app
 can have the webcam, live effects and face tracking the desktop booth has, and use the image
-service only for the finished picture. Written 2026-11-08. **Status: Phases 1 and 2 done.**
+service only for the finished picture. Written 2026-11-08. **Status: Phases 1–3 done.**
 
 ---
 
@@ -109,11 +109,27 @@ uploaded photo again instead of re-rendering on every change.
 **Tried by the owner with a real webcam (2026-11-08): it works.**
 
 ### Phase 3: Video recording
-12. **Record** button: records until it's pressed again.
-13. **Timed record** button: records for a chosen time, up to 5 minutes, then stops by
-    itself, with the time left on screen.
-14. Recordings show in the captures list to play and save. The service doesn't take
-    videos, so they stay in the browser unless the page's own app keeps them.
+12. ✅ **Record** button (R): records until it's pressed again. The video is the preview
+    as drawn (effects, stickers, frame, mascot), with the microphone if Sound is ticked
+    and the browser allows it (`recorder.js`, the browser's MediaRecorder).
+13. ✅ **Timed record** button (T): records for the chosen time limit (10 s to 5 minutes),
+    then stops by itself. A badge on the preview shows the time and what's left. Limits
+    over 5 minutes are cut to 5 in the engine too. The countdown before a photo also runs
+    before either recording starts.
+14. ✅ Recordings show in the captures list to play and save, as MP4 where the browser can
+    make it (Chrome can), otherwise WebM. The service doesn't take videos, so they stay in
+    the browser unless the page's own app keeps them (`onRecording`).
+
+**Checked in Chrome (2026-11-08)** with the fake camera and microphone: Record stopped by
+hand after about 3 s, and Timed record with a 10 s limit stopped by itself at 10.01 s. Both
+were 1280 x 720 MP4s with sound, about 0.55 MB a second; the timed one had 297 frames at
+29.6 fps, with the sticker following the face. Things to know:
+- Face outlines and the word REC of the VHS preset are drawn on the canvas over the
+  preview, so they aren't in videos.
+- A Record with no limit keeps the whole video in memory until it's saved, about 33 MB a
+  minute.
+- Browsers slow down hidden tabs, so a recording may stall if the page isn't on screen
+  (not tried).
 
 ### Phase 4: React and Vue
 15. A React hook and component over the same engine.

@@ -34,8 +34,14 @@ and brand colours here still match `core/`.
 
 | Key | Does |
 | --- | --- |
-| Space | Capture (after the timer) |
+| Space | Capture a photo (after the countdown) |
+| R | Record a video, or stop it |
+| T | Record a video up to the time limit (at most 5 minutes), or stop it early |
 | `[` `]` | The previous and next preset |
+
+Videos record the preview as you see it, with sound if it's allowed. They stay in the
+browser to play and save, since the service doesn't take videos; `onRecording` hands each
+one to the page.
 
 ## How it fits together
 
@@ -82,6 +88,7 @@ service.
    mountBooth(document.querySelector('#booth'), {
      serviceUrl: '/image-service',
      onCapture: ({ blob, look, photoId }) => { /* keep it in your app */ },
+     onRecording: ({ blob, type, duration }) => { /* upload the video to your app */ },
    })
    ```
 
