@@ -29,6 +29,15 @@ class TestStyles(unittest.TestCase):
                         for name in NEVER:
                             self.assertNotIn(name, lower)
 
+    def test_fire_only_where_a_scene_asks_for_it(self):
+        # the base goes with every scene, so it mustn't bring fire into all of them
+        for style in STYLES.values():
+            self.assertNotIn('fire', style.base.lower())
+        prompts = {scene: build_prompt(NEW_ORLEANS, scene) for scene in NEW_ORLEANS.scenes}
+        self.assertIn('flames', prompts['inferno'])
+        for scene in ('boss_office', 'mansion_life', 'block_at_dusk'):
+            self.assertIn('No fire or flames', prompts[scene])
+
     def test_one_photo_or_several_angles(self):
         one = build_prompt('new_orleans', 'inferno', 1)
         three = build_prompt('new_orleans', 'inferno', 3)

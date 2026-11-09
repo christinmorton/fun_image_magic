@@ -6,6 +6,9 @@
 from dataclasses import dataclass
 
 
+NO_FIRE = 'No fire or flames anywhere in the picture.'
+
+
 @dataclass(frozen=True)
 class Style:
     key: str
@@ -18,10 +21,13 @@ class Style:
 NEW_ORLEANS = Style(
     key='new_orleans',
     name='New Orleans, 1996-2001',
+    # the base goes with every scene, so it mustn't mention fire: when it said "fire orange"
+    # and "firelight", flames turned up in every scene. Scenes that want fire ask for it;
+    # the others say "no fire"
     base=('A square late-1990s Southern rap album cover artwork, made as a glossy digital photo collage '
-          'with an airbrushed finish. Oversaturated warm colours, mostly gold, fire orange, red and black. '
-          'Hard cut-out edges with a soft glowing halo around the person, sparkle glints and lens flares, '
-          'dramatic firelight. Maximalist and luxurious, every part of the picture full of detail. '
+          'with an airbrushed finish. Oversaturated warm colours, mostly deep gold, burnt orange, red and '
+          'black. Hard cut-out edges with a soft glowing halo around the person, sparkle glints and lens '
+          'flares, dramatic warm lighting. Maximalist and luxurious, every part of the picture full of detail. '
           'No text, no letters, no numbers, no logos, no stickers.'),
     scenes={
         'inferno': ('Inferno',
@@ -31,18 +37,19 @@ NEW_ORLEANS = Style(
         'boss_office': ('Boss office',
                         'The person leans back in a large leather chair behind a polished wooden desk covered '
                         'in stacks of cash. Behind them: red velvet walls with gold patterns, a crystal '
-                        'chandelier, brass candlesticks and a glass of champagne.'),
+                        'chandelier, brass candlesticks and a glass of champagne. ' + NO_FIRE),
         'mansion_life': ('Mansion life',
                          'The person poses in a white and gold marble mansion, holding a phone to their ear. '
                          'Beside them, a large champagne bottle and an ornate gold picture frame. A classic '
-                         'cream-coloured luxury car with no badges or logos is parked in front.'),
+                         'cream-coloured luxury car with no badges or logos is parked in front. ' + NO_FIRE),
         'war_zone': ('War zone',
                      'The person stands in front of a battlefield at sunset: huge orange explosions, smoke, '
                      'fighter jets and helicopters in the sky, and a tank behind them. The person wears '
                      'camouflage. No weapons in anyone\'s hands.'),
-        'ghetto_skyline': ('Ghetto skyline',
-                           'The person stands in front of a neighbourhood street at dusk under a dramatic '
-                           'orange and purple sky, with flames rising across the foreground.'),
+        'block_at_dusk': ('Block at dusk',
+                          'The person stands on a neighbourhood street at dusk under a dramatic orange and '
+                          'purple sky, with shotgun houses, warm streetlights and the neon glow of a corner '
+                          'store behind them. ' + NO_FIRE),
     },
     layout_space=('Keep the top fifth and the bottom fifth of the picture as background only, with no faces '
                   'or important objects, so lettering can be added later.'),
