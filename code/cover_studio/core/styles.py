@@ -15,7 +15,8 @@ class Style:
     key: str
     name: str
     base: str               # always used: the era, finish and colours, and "no text"
-    scenes: dict            # scene key -> (name, description)
+    scenes: dict            # scene key -> (name, description), or (name, description, base) for a
+                            # scene with its own look (e.g. Memphis's black-and-white tape era)
     layout_space: str       # keeps the top and bottom clear for the lettering
 
 
@@ -62,7 +63,111 @@ NEW_ORLEANS = Style(
                   'be below the top quarter of the picture, with only background above it.'),
 )
 
-STYLES = {style.key: style for style in [NEW_ORLEANS]}
+LAYOUT_SPACE = NEW_ORLEANS.layout_space
+
+# the other regions, from docs/merch-styles/memphis.md, houston.md and compton-la.md. Their
+# own lettering, layouts and finishes aren't built yet; the artwork already works
+MEMPHIS = Style(
+    key='memphis',
+    name='Memphis, 1993-2001',
+    base=('A square late-1990s Memphis underground rap album cover artwork: a dark, gritty, airbrushed '
+          'digital photo collage. Low, hard lighting, deep shadows, mostly black with blood red and toxic '
+          'green accents. Menacing and raw rather than luxurious. '
+          'No text, no letters, no numbers, no logos, no stickers.'),
+    scenes={
+        'graveyard': ('Graveyard at midnight',
+                      'The person stands among old leaning tombstones at midnight, with fog on the ground, bare '
+                      'twisted trees, crows and a full moon behind them. ' + NO_FIRE),
+        'hellfire': ('Hellfire',
+                     'The person stands on a cracked, burning landscape under a blood-red sky, with smoke, '
+                     'glowing embers and a crowd of shadowy figures behind them.'),
+        'smoke_room': ('Smoke room',
+                       'The person stands in a dark room filled with thick smoke, lit only by red light from '
+                       'below, with candles on the floor around them.'),
+        'back_street': ('Back street (tape era)',
+                        'The person stands in an empty back street with a chain-link fence and power lines. '
+                        + NO_FIRE,
+                        'A square early-1990s underground rap cassette cover: a grainy black-and-white photograph, '
+                        'high contrast, shot with a flash on cheap film, as if photocopied. Raw and handmade. '
+                        'No text, no letters, no numbers, no logos, no stickers.'),
+        'limo_casket': ('Limo and casket',
+                        'The person stands at night beside a long white limousine and a polished casket covered '
+                        'in flowers, lit like a king\'s funeral. ' + NO_FIRE),
+        'crew_mist': ('Crew in the mist',
+                      'The crew stands close together in thick fog, wearing hoods and caps, lit from below by red '
+                      'light.'),
+    },
+    layout_space=LAYOUT_SPACE,
+)
+
+HOUSTON = Style(
+    key='houston',
+    name='Houston, 1990s-2005',
+    base=('A square mid-1990s Houston rap album cover artwork, made as a glossy digital photo collage. Deep '
+          'candy-paint colours, mostly candy purple with chrome, night blue and touches of candy red. Night '
+          'lighting with streetlight glow and sharp chrome reflections. Slow, smooth and shining. '
+          'No text, no letters, no numbers, no logos, no stickers.'),
+    scenes={
+        'slab_parade': ('Slab parade',
+                        'The person stands in front of a line of classic American luxury sedans in deep candy '
+                        'paint at night, with chrome spoke rims poking far out from the wheels and the trunks '
+                        'open to show glowing lights, under streetlights. The cars have no badges or logos. '
+                        + NO_FIRE),
+        'screwed_haze': ('Screwed haze',
+                         'The person stands in a surreal, slowed-down purple dream: soft focus, faint double '
+                         'images, floating shapes and a glowing lilac sky. ' + NO_FIRE),
+        'candy_wave': ('Candy wave',
+                       'The person stands beside a candy-painted classic sedan riding a giant ocean wave, with '
+                       'spray in the air and a bright sky. The car has no badges or logos. ' + NO_FIRE),
+        'ward_at_night': ('Ward at night',
+                          'The person stands on a neighbourhood street of small wooden houses under big live oak '
+                          'trees, lit by purple streetlights, with a candy-painted sedan at the kerb. ' + NO_FIRE),
+        'front_page': ('Front page',
+                       'The person is the photo on a newspaper front page: grey columns of blurred lines that '
+                       'can\'t be read, smaller photos and empty headline space around them, on off-white '
+                       'newsprint. ' + NO_FIRE),
+        'behind_fence': ('Behind the fence',
+                         'The person stands behind a chain-link fence in hard daylight, shot on grainy film. '
+                         + NO_FIRE),
+    },
+    layout_space=LAYOUT_SPACE,
+)
+
+COMPTON_LA = Style(
+    key='compton_la',
+    name='Compton and LA, 1988-1996',
+    base=('A square late-1980s or early-1990s West Coast rap album cover: a street photograph in bright, hazy '
+          'California daylight, shot on 35 mm film, with sun-faded colours, strong blacks and a little film '
+          'grain. Real and raw rather than glossy. '
+          'No text, no letters, no numbers, no logos, no stickers.'),
+    scenes={
+        'looking_up': ('Looking up',
+                       'Seen from the ground looking up: the person stares down into the camera against a pale '
+                       'hazy sky. ' + NO_FIRE),
+        'lowrider': ('Lowrider',
+                     'The person stands beside a classic lowrider in deep candy paint with gold spoke wheels on a '
+                     'wide palm-lined boulevard at a hazy sunset; the car is raised on its hydraulics. The car '
+                     'has no badges or logos. ' + NO_FIRE),
+        'alley': ('Alley',
+                  'The person stands in a sun-bleached alley with a chain-link fence, power lines and plain walls '
+                  'with no writing on them. ' + NO_FIRE),
+        'corner_store': ('Corner store',
+                         'The person stands in front of a small corner store with barred windows and painted '
+                         'shapes but no readable words, in late-afternoon sun. ' + NO_FIRE),
+        'gfunk_cartoon': ('G-funk cartoon',
+                          'The person stands on a sunny LA street with palm trees, drawn as a cartoon that still '
+                          'clearly looks like them. ' + NO_FIRE,
+                          'A square early-1990s West Coast rap album cover: a bright, bold cartoon illustration '
+                          'with thick black outlines, flat sunny colours and a playful mood. '
+                          'No text, no letters, no numbers, no logos, no stickers.'),
+        'crew_on_block': ('Crew on the block',
+                          'The crew stands together on a sunny street in dark clothes, with a lowrider parked '
+                          'behind them. ' + NO_FIRE),
+    },
+    layout_space=LAYOUT_SPACE,
+)
+
+STYLES = {style.key: style for style in [NEW_ORLEANS, MEMPHIS, HOUSTON, COMPTON_LA]}
 
 KEEP_LIKENESS = ('Keep their face, skin tone, hair, facial hair and features exactly as in the photos, so '
                  'they are clearly recognisable.')
@@ -111,7 +216,7 @@ def wardrobe(clothing='gold_silk', jewellery=(), accessories=(), people=1):
 
 ORDINALS = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth']
 MAX_CREW = len(ORDINALS)
-CREW_SCENES = {'crew_lineup'}       # scenes made for crews (offered only when there's more than one person)
+CREW_SCENES = {'crew_lineup', 'crew_mist', 'crew_on_block'}   # scenes made for crews (offered only for crews)
 
 
 def person(references):
@@ -151,7 +256,8 @@ MAX_USER_TEXT = 400
 BANNED_NAMES = ['no limit', 'cash money', 'pen & pixel', 'pen and pixel', 'master p', 'juvenile', 'lil wayne',
                 'hot boys', 'mystikal', 'parental advisory', 'riaa', '400 degreez', 'rolls royce', 'rolls-royce',
                 'bentley', 'mercedes', 'lamborghini', 'ferrari', 'rolex', 'cartier', 'gucci', 'louis vuitton',
-                'versace', 'chanel', 'prada', 'nike', 'supreme', 'disney', 'marvel']
+                'versace', 'chanel', 'prada', 'nike', 'supreme', 'disney', 'marvel',
+                'confederate']                      # (a hate symbol to many: see docs/merch-styles/memphis.md)
 
 
 def check_user_text(text):
@@ -163,7 +269,7 @@ def check_user_text(text):
     lower = f' {re.sub(r"[^a-z0-9&-]+", " ", text.lower())} '
     found = [name for name in BANNED_NAMES if f' {name} ' in lower]
     if found:
-        problems.append(f'no real artists, labels or brands: {", ".join(found)}')
+        problems.append(f'not allowed (real artists, labels, brands or banned symbols): {", ".join(found)}')
     return problems
 
 def sentence(text):
@@ -182,18 +288,21 @@ def build_prompt(style, scene, references=1, extras='', clothing=None, jewellery
         raise ValueError(f'a cover can have 1 to {MAX_CREW} people')
     if isinstance(style, str):
         style = STYLES[style]
+    base = style.base
     if scene == CUSTOM:
         if not custom_scene.strip():
             raise ValueError('a custom scene needs a description')
         scene_text = sentence(custom_scene)
     elif scene in style.scenes:
         scene_text = style.scenes[scene][1]
+        if len(style.scenes[scene]) > 2:            # a scene with its own look
+            base = style.scenes[scene][2]
     else:
         raise ValueError(f'unknown scene "{scene}"; use one of {list(style.scenes) + [CUSTOM]}')
     worn = wardrobe(clothing, jewellery, accessories, people) if clothing else ''
     user_words = scene == CUSTOM or details.strip()
     who = person(references) if people == 1 else crew(people, references)
     space = style.layout_space if people == 1 else style.layout_space.replace("the person's head", 'their heads')
-    parts = [style.base, scene_text, who, worn, sentence(details), extras.strip(), space,
+    parts = [base, scene_text, who, worn, sentence(details), extras.strip(), space,
              GUARDRAILS if user_words else '']
     return ' '.join(part for part in parts if part)

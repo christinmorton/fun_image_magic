@@ -95,6 +95,18 @@ class TestStyles(unittest.TestCase):
         with self.assertRaises(ValueError):
             build_prompt(NEW_ORLEANS, 'inferno', 1, people=MAX_CREW + 1)
 
+    def test_the_other_regions(self):
+        self.assertEqual(list(STYLES), ['new_orleans', 'memphis', 'houston', 'compton_la'])
+        self.assertIn('candy purple', build_prompt('houston', 'slab_parade'))
+        self.assertIn('35 mm film', build_prompt('compton_la', 'lowrider'))
+        # scenes with their own look use their own base instead of the region's
+        tape = build_prompt('memphis', 'back_street')
+        self.assertIn('black-and-white photograph', tape)
+        self.assertNotIn('airbrushed digital photo collage', tape)
+        self.assertIn('cartoon illustration', build_prompt('compton_la', 'gfunk_cartoon'))
+        self.assertIn('Memphis underground', build_prompt('memphis', 'graveyard'))
+        self.assertIn('confederate', check_user_text('a Confederate flag behind them')[0])
+
     def test_extras_and_unknown_scenes(self):
         self.assertIn('gold rope chain', build_prompt(NEW_ORLEANS, 'boss_office', extras='They wear a gold rope chain.'))
         with self.assertRaises(ValueError):
