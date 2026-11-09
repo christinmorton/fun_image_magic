@@ -119,12 +119,12 @@ FIELDS = {
 class LetteringScreen:
     # everything on the lettering screen; no windows here, so it can be tested
     def __init__(self, ask=ask_text, picture=None, name='BIG MIKE', background=None, detect=None,
-                 choose_design=choose_design):
+                 choose_design=choose_design, layout=None, featuring=()):
         self.choose_design = choose_design   # how to pick a saved design (a dialog; replaced in tests)
         self.sticker = 1                     # index into STICKERS: Hood Classic
         _, lines, look = STICKERS[self.sticker]
-        self.words = CoverWords(name=name, title='BOSS LIFE', sticker=lines)
-        self.layout = LAYOUT_KEYS[0]
+        self.words = CoverWords(name=name, title='BOSS LIFE', featuring=tuple(featuring), sticker=lines)
+        self.layout = layout or LAYOUT_KEYS[0]
         self.styles = {**LAYOUTS[self.layout].styles, 'sticker': look}
         self.seed = 1
         # each part aged like a 90s CD booklet, the picture ("artwork") too
@@ -356,15 +356,16 @@ class LetteringScreen:
         self.background(work)
 
 
-def main(picture=None, name='BIG MIKE'):
-    # picture: artwork to letter (from desktop/artwork.py), or None for the placeholder
+def main(picture=None, name='BIG MIKE', layout=None, featuring=()):
+    # picture: artwork to letter (from desktop/artwork.py), or None for the placeholder;
+    # a crew comes with the crew row layout and its members as the featuring list
     # Windows display scaling would blur the window; this keeps it sharp
     if sys.platform == 'win32':
         try:
             ctypes.windll.shcore.SetProcessDpiAwareness(2)
         except (AttributeError, OSError):
             pass
-    screen = LetteringScreen(picture=picture, name=name)
+    screen = LetteringScreen(picture=picture, name=name, layout=layout, featuring=featuring)
     cv2.namedWindow(WINDOW)
     cv2.moveWindow(WINDOW, 40, 20)
     while True:

@@ -140,6 +140,34 @@ class TestArtworkScreen(unittest.TestCase):
         self.assertIsNone(screen.busy)
         self.assertEqual(len(screen.results), 4)
 
+    def test_a_crew(self):
+        other = save_subject('Lil Ray', PICTURES, consent=True, subjects_dir=self.folder.parent)
+        solo = self.screen()
+        self.assertNotIn('crew_lineup', solo.scenes())                      # crew scenes only for crews
+        crew = ArtworkScreen([self.folder, other], lambda: self.generator, self.spending, confirm=lambda q: True,
+                             background=lambda work: work())
+        self.assertTrue(crew.crew)
+        self.assertEqual((crew.request.scene, crew.names()), ('crew_lineup', 'Big Mike, Lil Ray'))
+        crew.handle_key(ord('g'))
+        crew.poll()
+        self.assertEqual(len(self.generator.calls[0][1]), 6)                 # both people's three angles
+        self.assertEqual(crew.set_folder.parent.parent.name, '_crews')      # kept apart from each person
+        info = json.loads((crew.set_folder / 'request.json').read_text(encoding='utf-8'))
+        self.assertEqual(info['members'], ['Big Mike', 'Lil Ray'])
+        self.assertEqual(crew.screen().shape, solo.screen().shape)
+
+    def test_everyone_in_a_crew_must_have_agreed(self):
+        other = save_subject('Lil Ray', PICTURES, consent=True, subjects_dir=self.folder.parent)
+        path = other / 'subject.json'
+        info = json.loads(path.read_text(encoding='utf-8'))
+        del info['consent_version']
+        path.write_text(json.dumps(info), encoding='utf-8')
+        crew = ArtworkScreen([self.folder, other], lambda: self.generator, self.spending, confirm=lambda q: True,
+                             background=lambda work: work())
+        crew.handle_key(ord('g'))
+        self.assertEqual(self.generator.calls, [])
+        self.assertIn('Lil Ray', crew.message)
+
     def test_screen_draws_before_and_after(self):
         screen = self.screen()
         before = screen.screen()

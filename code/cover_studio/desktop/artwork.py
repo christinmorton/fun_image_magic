@@ -27,7 +27,7 @@ from core.artwork import (PREVIEW_COUNT, ArtworkRequest, final_cost, make_final,
                           make_previews, preview_cost, reference_photos, save_final, save_previews)
 from core.env_file import load_env                                                           # noqa: E402
 from core.spending import OverLimit, Spending                                                # noqa: E402
-from core.styles import ACCESSORIES, CLOTHING, CUSTOM, JEWELLERY, STYLES                     # noqa: E402
+from core.styles import ACCESSORIES, CLOTHING, CREW_SCENES, CUSTOM, JEWELLERY, MAX_CREW, STYLES   # noqa: E402
 from core.subjects import has_current_consent, list_subjects, load_subject                   # noqa: E402
 from desktop.studio import ask_text, next_in, window_closed                                  # noqa: E402
 
@@ -53,27 +53,29 @@ def confirm(question):
     root.destroy()
     return answer
 
-def choose_subject(folders):
-    # a list of the saved people; returns the chosen folder, or None
+def choose_subjects(folders):
+    # a list of the saved people: one for a solo cover, or several (Ctrl- or Shift-click,
+    # up to MAX_CREW) for a crew. Returns the chosen folders, or [] if cancelled
     root = Tk()
-    root.title('Choose a person')
+    root.title('Choose a person, or several for a crew')
     root.attributes('-topmost', True)
-    chosen = {'folder': None}
-    names = Listbox(root, width=40, height=min(12, max(4, len(folders))))
+    chosen = {'folders': []}
+    Label(root, text=f'One person, or Ctrl/Shift-click up to {MAX_CREW} for a crew:', anchor='w').pack(
+        fill='x', padx=12, pady=(12, 0))
+    names = Listbox(root, width=44, height=min(12, max(4, len(folders))), selectmode='extended')
     for folder in folders:
         info, _ = load_subject(folder)
         names.insert('end', f'{info["name"]}   ({", ".join(info["angles"])})')
     names.selection_set(0)
-    names.pack(padx=12, pady=12)
+    names.pack(padx=12, pady=8)
     def ok(event=None):
-        if names.curselection():
-            chosen['folder'] = folders[names.curselection()[0]]
+        chosen['folders'] = [folders[i] for i in names.curselection()][:MAX_CREW]
         root.destroy()
     names.bind('<Double-Button-1>', ok)
     root.bind('<Return>', ok)
     Button(root, text='OK', width=12, command=ok).pack(pady=(0, 12))
     root.mainloop()
-    return chosen['folder']
+    return chosen['folders']
 
 def choose_extras(jewellery, accessories):
     # checkboxes for the jewellery and accessories; returns (jewellery, accessories) or None
@@ -102,12 +104,16 @@ def choose_extras(jewellery, accessories):
 class ArtworkScreen:
     # everything on the artwork screen; no windows here, so it can be tested. Paid work
     # runs in the background (background(work)), and poll() picks up the result
-    def __init__(self, folder, make_generator, spending, confirm=confirm, choose_extras=choose_extras,
+    def __init__(self, folders, make_generator, spending, confirm=confirm, choose_extras=choose_extras,
                  background=None, ask=ask_text):
-        self.folder = folder
+        # folders: one subject's folder, or a list of them (more than one is a crew)
+        self.folders = [folders] if isinstance(folders, Path) else list(folders)
         self.ask = ask                                # how to ask for text (a dialog; replaced in tests)
-        self.info, self.pictures = load_subject(folder)
-        self.request = ArtworkRequest()
+        loaded = [load_subject(f) for f in self.folders]
+        self.infos, self.people = [info for info, _ in loaded], [pictures for _, pictures in loaded]
+        self.info, self.pictures = self.infos[0], self.people[0]    # the (first) person
+        self.crew = len(self.folders) > 1
+        self.request = ArtworkRequest(scene='crew_lineup' if self.crew else 'inferno')
         self.make_generator = make_generator          # made on first use, so the screen opens without a key
         self.generator = None
         self.spending, self.confirm, self.choose_extras = spending, confirm, choose_extras
@@ -121,7 +127,11 @@ class ArtworkScreen:
         self._done = None                             # finished background work, for poll()
 
     def scenes(self):
-        return list(STYLES[self.request.style].scenes) + [CUSTOM]
+        # the style's scenes (crew scenes only for crews), then Custom
+        return [s for s in STYLES[self.request.style].scenes if self.crew or s not in CREW_SCENES] + [CUSTOM]
+
+    def names(self):
+        return ', '.join(info['name'] for info in self.infos)
 
     def scene_name(self):
         if self.request.scene == CUSTOM:
@@ -203,8 +213,9 @@ class ArtworkScreen:
         if self.request.problems():
             self.message = 'Fix your words first: ' + '; '.join(self.request.problems())
             return False
-        if not has_current_consent(self.info):
-            self.message = (f'{self.info["name"]} hasn\'t agreed to their photos going to the image AI: '
+        missing = [info['name'] for info in self.infos if not has_current_consent(info)]
+        if missing:
+            self.message = (f'{", ".join(missing)} hasn\'t agreed to their photos going to the image AI: '
                             'desktop\\scan.py --reconfirm first')
             return False
         try:
@@ -229,13 +240,16 @@ class ArtworkScreen:
         self.background(wrapped)
 
     def start_previews(self):
-        if not self.may_spend(preview_cost(), f'Make {PREVIEW_COUNT} previews of {self.info["name"]} '
+        if not self.may_spend(preview_cost(), f'Make {PREVIEW_COUNT} previews of {self.names()} '
                                               f'({self.scene_name()})'):
             return
-        request, refs = self.request, len(reference_photos(self.pictures))
+        request, (_, per_person) = self.request, reference_photos(self.people)
+        # a crew's artwork shows several people, so it's kept apart from any one of them
+        home = self.folders[0].parent / '_crews' if self.crew else self.folders[0]
+        names = [info['name'] for info in self.infos]
         def work(generator):
-            results = make_previews(self.pictures, request, generator, self.spending)
-            return ('previews', results, save_previews(self.folder, request, results, refs))
+            results = make_previews(self.people, request, generator, self.spending)
+            return ('previews', results, save_previews(home, request, results, per_person, len(names), names))
         self.run(f'Making {PREVIEW_COUNT} previews', work)
 
     def start_final(self):
@@ -249,7 +263,7 @@ class ArtworkScreen:
             return
         number, preview = self.picked, self.results[self.picked - 1][0]
         def work(generator):
-            image, error = make_final(self.pictures, preview, generator, self.spending, FINAL_SIZE)
+            image, error = make_final(self.people, preview, generator, self.spending, FINAL_SIZE)
             if image is not None:
                 save_final(self.set_folder, number, FINAL_SIZE, image)
             return ('final', number, image, error)
@@ -284,14 +298,23 @@ class ArtworkScreen:
         grid_w = 2 * TILE + 3 * GAP
         h = 2 * TILE + 3 * GAP
         panel = np.full((h, PANEL_W, 3), 34, np.uint8)
-        front = self.pictures.get('front')
-        if front is not None:
-            scale = min((PANEL_W - 2 * GAP) / front.shape[1], 200 / front.shape[0])
-            small = cv2.resize(front, (int(front.shape[1] * scale), int(front.shape[0] * scale)), interpolation=cv2.INTER_AREA)
-            panel[GAP:GAP + small.shape[0], GAP:GAP + small.shape[1]] = small
+        # everyone's front photo in a row (one big photo for a solo cover)
+        fronts = [p['front'] for p in self.people if 'front' in p]
+        slot = (PANEL_W - GAP * (len(fronts) + 1)) // max(len(fronts), 1)
+        x, tallest = GAP, 0
+        for front in fronts:
+            scale = min(slot / front.shape[1], 200 / front.shape[0])
+            small = cv2.resize(front, (max(1, int(front.shape[1] * scale)), max(1, int(front.shape[0] * scale))),
+                               interpolation=cv2.INTER_AREA)
+            panel[GAP:GAP + small.shape[0], x:x + small.shape[1]] = small
+            x, tallest = x + slot + GAP, max(tallest, small.shape[0])
         style = STYLES[self.request.style]
         short = lambda text, n=34: f'"{text[:n]}..."' if len(text) > n else f'"{text}"'
-        lines = [(self.info['name'], WHITE, 0.8, 2),
+        title = f'Crew of {len(self.infos)}' if self.crew else self.info['name']
+        lines = [(title, WHITE, 0.8, 2)]
+        if self.crew:
+            lines.append((self.names(), GOLD, 0.5, 1))
+        lines += [
                  (f'Style: {style.name}', GREY, 0.5, 1),
                  (f'S  Scene: {self.scene_name()}', WHITE, 0.55, 1)]
         if self.request.scene == CUSTOM:
@@ -301,7 +324,7 @@ class ArtworkScreen:
                  (f'J  Jewellery: {", ".join(map(label, self.request.jewellery)) or "none"}', WHITE, 0.55, 1),
                  (f'   Extras: {", ".join(map(label, self.request.accessories)) or "none"}', WHITE, 0.55, 1),
                  (f'Spent today: ${self.spending.spent_today():.2f} of ${self.spending.limit:.2f}', GREY, 0.5, 1)]
-        y = 250
+        y = GAP + tallest + 40                      # just below the photos
         for text, colour, scale, weight in lines:
             cv2.putText(panel, text[:44], (GAP, y), cv2.FONT_HERSHEY_SIMPLEX, scale, colour, weight, cv2.LINE_AA)
             y += 34 if scale > 0.6 else 28
@@ -346,10 +369,10 @@ def main():
         messagebox.showinfo('Cover Studio', 'No one has been scanned yet: run desktop\\scan.py first.', parent=root)
         root.destroy()
         return
-    folder = choose_subject(folders)
-    if folder is None:
+    chosen = choose_subjects(folders)
+    if not chosen:
         return
-    screen = ArtworkScreen(folder, GeminiGenerator, Spending())
+    screen = ArtworkScreen(chosen, GeminiGenerator, Spending())
     cv2.namedWindow(WINDOW)
     cv2.moveWindow(WINDOW, 30, 20)
     action = None
@@ -369,7 +392,11 @@ def main():
         cv2.destroyAllWindows()
     if action == 'letter':
         from desktop.studio import main as lettering
-        lettering(picture=screen.chosen(), name=screen.info['name'].upper())
+        if screen.crew:                              # the crew row layout, with the members as the featuring list
+            lettering(picture=screen.chosen(), name='THE CREW', layout='crew_row',
+                      featuring=tuple(info['name'] for info in screen.infos))
+        else:
+            lettering(picture=screen.chosen(), name=screen.info['name'].upper())
 
 
 if __name__ == '__main__':

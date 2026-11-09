@@ -159,6 +159,13 @@ class TestLetteringScreen(unittest.TestCase):
         self.assertEqual(screen.framing, Framing())
         self.assertIn('placeholder', screen.message)
 
+    def test_a_crew_starts_on_the_crew_row(self):
+        screen = LetteringScreen(name='THE CREW', layout='crew_row', featuring=('Big Mike', 'Lil Ray'),
+                                 detect=lambda img: [])
+        self.assertEqual((screen.layout, screen.words.name), ('crew_row', 'THE CREW'))
+        self.assertEqual(screen.words.featuring, ('Big Mike', 'Lil Ray'))
+        self.assertEqual(screen.styles['name'], LAYOUTS['crew_row'].styles['name'])
+
     def test_starting_with_artwork_and_a_name(self):
         art = np.random.default_rng(0).integers(0, 255, (512, 512, 3)).astype(np.uint8)
         screen = LetteringScreen(picture=art, name='OOUMARI', detect=lambda img: [])
