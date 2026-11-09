@@ -6,7 +6,17 @@ made from an older template should take it, and which files it touches. The vers
 
 ## Unreleased
 
-Nothing yet.
+**For apps:** take `web/` if your app needs the live camera in a browser. Nothing else
+changed, and the API is the same.
+
+- **Web webcam (`web/`):** a Vite project with the booth's live camera in the browser. It
+  runs the camera, live effects for every preset (WebGL) and face tracking in video mode,
+  then sends the captured photo to the service for the exact render. The engine
+  (`web/src/engine/`) has no UI, and a vanilla HTML, CSS and JavaScript booth is built on it.
+  The page's server forwards requests and adds the token, so the browser never has it.
+  See `web/README.md` and `docs/web-webcam-plan.md`.
+- **`tests/test_web.py`** checks that the browser's presets, filters, look defaults and
+  brand colours still match `core/`.
 
 ## 0.2.0 (2026-11-02): the first template
 

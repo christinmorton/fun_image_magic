@@ -2,7 +2,7 @@
 
 A browser version of the booth's live camera, in `code/image_service/web/`, so any web app
 can have the webcam, live effects and face tracking the desktop booth has, and use the image
-service only for the finished picture. Written 2026-11-08. **Status: in progress.**
+service only for the finished picture. Written 2026-11-08. **Status: Phase 1 done.**
 
 ---
 
@@ -52,21 +52,36 @@ web/
 ## Steps
 
 ### Phase 1: The vanilla booth
-1. Write this plan.
-2. Set up the Vite project: pages, the dev proxy that adds the token, and the models and
-   MediaPipe files served from where they already are.
-3. **Camera:** pick a camera and a resolution (the camera's best by default), mirror like a
-   selfie camera, and capture a still at full resolution.
-4. **Live effects** on the GPU: contrast, brightness, greyscale, the course filters, and
-   every preset in `core/filters.py`, approximated where OpenCV does something a shader
-   can't do in one pass.
-5. **Face tracking** with MediaPipe in video mode (up to 4 faces, as in `core/tracking.py`),
-   with the face count and outlines on screen.
-6. **Service client:** the catalog, upload, render, compose and AI jobs, through the page's
-   own server.
-7. **The vanilla page:** controls, a 3-2-1 countdown, the captured photo uploaded once, and
-   the service's exact render shown next to it, with how long it took.
-8. Engine tests, a production build, and a check in a real browser.
+1. ✅ Write this plan.
+2. ✅ Set up the Vite project (Vite 8.3, MediaPipe tasks-vision 1.2.2): pages, the dev
+   proxy that adds the token, and the models and MediaPipe files served from where they
+   already are (`vite.config.js`).
+3. ✅ **Camera** (`camera.js`): pick a camera and a resolution (the camera's best by
+   default), mirror like a selfie camera, and capture a still at full resolution as a 0.95
+   JPEG.
+4. ✅ **Live effects** on the GPU (`effects.js`): contrast, brightness, greyscale, the
+   course filters, and all 17 presets, approximated where OpenCV does something a shader
+   can't do in one pass. Effects measured in pixels are scaled to the photo the service
+   will keep, so pixel art blocks and comic dots match the final size.
+5. ✅ **Face tracking** (`tracker.js`) with MediaPipe in video mode (up to 4 faces, as in
+   `core/tracking.py`), on the GPU with a CPU fallback, with the face count and outlines
+   on screen. Outlines are left off Pop Art and Mirror, which move the face.
+6. ✅ **Service client** (`service.js`): health, catalog, upload, render, compose and AI
+   jobs (with the live event stream), through the page's own server.
+7. ✅ **The vanilla page** (`vanilla/`): camera, adjust, preset and final-render controls
+   from the service's catalog, a countdown, and the captured photo uploaded once with the
+   service's exact render beside it. Changing a final-render extra (frame, sticker…)
+   renders the latest capture again. `mountBooth()` puts it into any page.
+8. ✅ 17 engine tests (`npm test`), 7 Python tests that keep `web/` in step with `core/`
+   (`tests/test_web.py`), a production build, and a check in Chrome.
+
+**Checked in Chrome (2026-11-08)**, with a stock portrait as a fake 1280 x 720 camera:
+29–30 fps with tracking on the GPU, the face found and followed, and a capture uploaded
+and rendered in 50–90 ms. Each preset's preview was compared with the service's render of
+the same frame. Most match closely. Watercolor and Neon were redrawn after the first
+comparison. Night Vision and X-Ray are still brighter on the service, because OpenCV evens
+out the whole picture's histogram; doing the same live would need a histogram pass. A
+real webcam still needs a first try by hand.
 
 ### Phase 2: Live art
 9. A route for full-size art (the catalog only has 200 px thumbnails).
