@@ -21,16 +21,23 @@ if str(SERVICE_DIR) not in sys.path:
     sys.path.insert(0, str(SERVICE_DIR))
 
 from core.cover_layout import (LAYOUTS, STICKERS, CoverWords, apply_lettering,              # noqa: E402
-                               draw_cover_lettering, placeholder, square_crop)
+                               draw_cover_lettering, placeholder)
 from core.designs import save_lettering                                                      # noqa: E402
+from core import MODELS_DIR                                                                  # noqa: E402
 from core.finish import FINISHES, age                                                        # noqa: E402
+from core.framing import Framing, auto_framing, frame_artwork                                # noqa: E402
+from core.scan import FaceDetector                                                           # noqa: E402
 from core.products import export_products                                                    # noqa: E402
 from core.lettering import TREATMENTS                                                        # noqa: E402
 from desktop.sources import choose_image_file, load_image                                    # noqa: E402
 
 WINDOW = 'Cover Studio'
 PREVIEW = 720              # the cover on screen, in pixels
-BAR_H = 138                # the dark bar above it, with the settings and keys
+BAR_H = 160                # the dark bar above it, with the settings and keys
+# arrow keys as cv2.waitKeyEx() reports them (Windows, then Linux): how they move the picture
+ARROWS = {2424832: (-1, 0), 2555904: (1, 0), 2490368: (0, -1), 2621440: (0, 1),
+          65361: (-1, 0), 65363: (1, 0), 65362: (0, -1), 65364: (0, 1)}
+MOVE, ZOOM = 0.02, 1.05     # each press moves the picture 2% of the cover, or zooms it 5%
 LAYOUT_KEYS = list(LAYOUTS)
 STYLE_NAMES = list(TREATMENTS)
 PARTS = ['all', 'artwork', 'name', 'title', 'presents', 'featuring', 'sticker']   # what Tab picks for A to age
@@ -88,7 +95,7 @@ FIELDS = {
 
 class LetteringScreen:
     # everything on the lettering screen; no windows here, so it can be tested
-    def __init__(self, ask=ask_text, picture=None, name='BIG MIKE', background=None):
+    def __init__(self, ask=ask_text, picture=None, name='BIG MIKE', background=None, detect=None):
         self.sticker = 1                     # index into STICKERS: Hood Classic
         _, lines, look = STICKERS[self.sticker]
         self.words = CoverWords(name=name, title='BOSS LIFE', sticker=lines)
@@ -108,6 +115,30 @@ class LetteringScreen:
         # print files take about a minute, so they're made in the background (not a daemon
         # thread: closing the window still lets an export finish)
         self.background = background or (lambda work: threading.Thread(target=work).start())
+        # where the picture sits under the lettering: fitted automatically so the name and
+        # title don't cover the face, until it's moved by hand
+        self.framing, self.framing_auto = Framing(), True
+        self._detect = detect                # finds faces (MediaPipe, made when first needed)
+        if picture is not None:
+            self.fit_picture()
+
+    def detect(self, image):
+        if self._detect is None:
+            self._detect = FaceDetector(MODELS_DIR, still=True)
+        return self._detect(image)
+
+    def fit_picture(self):
+        # move the picture so the layout's name and title stay off the face(s)
+        self.framing, self.framing_auto = auto_framing(self.picture, self.layout, self.detect), True
+        if self.framing != Framing():
+            self.say('Moved the picture so the lettering doesn\'t cover the face   (arrows [ ] adjust, O undo)', 6)
+
+    def nudge(self, dx=0.0, dy=0.0, zoom=1.0):
+        # move or zoom the picture by hand
+        f = self.framing
+        self.framing = Framing(round(min(2.0, max(0.5, f.zoom * zoom)), 3),
+                               round(min(0.5, max(-0.5, f.dx + dx)), 3), round(min(0.5, max(-0.5, f.dy + dy)), 3))
+        self.framing_auto = False
 
     def settings(self):
         return (repr(self.words), self.layout, tuple(sorted(self.styles.items())), self.seed,
@@ -115,7 +146,7 @@ class LetteringScreen:
 
     def cover(self):
         # the cover on screen: the picture with the (aged) lettering over it
-        key = self.settings() + (id(self.picture),)
+        key = self.settings() + (id(self.picture), self.framing)
         if self._cover[0] != key:
             if self._layer[0] != self.settings():
                 self._layer = (self.settings(), draw_cover_lettering(self.words, self.layout, PREVIEW, self.styles,
@@ -123,7 +154,7 @@ class LetteringScreen:
             if self.picture is None:
                 picture = placeholder(PREVIEW, 4 if self.layout == 'crew_row' else 1)
             else:
-                picture = cv2.resize(square_crop(self.picture), (PREVIEW, PREVIEW), interpolation=cv2.INTER_AREA)
+                picture = frame_artwork(self.picture, PREVIEW, self.framing)
             picture = age(picture, self.finishes['artwork'], 1.0, self.seed, unit_size=PREVIEW)
             self._cover = (key, apply_lettering(picture, self._layer[1]))
         return self._cover[1]
@@ -148,7 +179,8 @@ class LetteringScreen:
             x += cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, scale, 2)[0][0] + int(12 * scale / 0.5)
         hints = ['N name   T title   P presents   F featuring   E sticker words   K sticker',
                  'L layout   1 name style   2 title style   TAB part   A finish   R reshuffle',
-                 'U picture   B plain   S save   X print files   Q quit']
+                 'U picture   B plain   S save   X print files   Q quit',
+                 'Arrows move the picture   [ ] zoom out / in   Z fit to the lettering   O as made']
         for i, hint in enumerate(hints):
             cv2.putText(bar, hint, (14, 84 + 22 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1, cv2.LINE_AA)
         return np.vstack([bar, self.cover()])
@@ -166,6 +198,9 @@ class LetteringScreen:
         # one key press; returns 'quit', 'save' or None
         if key == -1:
             return None
+        if key in ARROWS or chr(key & 0xFF) in '[]zZoO':
+            self.frame_key(key)
+            return None
         if key & 0xFF == TAB_KEY:
             self.part = next_in(PARTS, self.part)
             self.say(f'A now changes the finish of: {self.part}')
@@ -182,6 +217,8 @@ class LetteringScreen:
             # each layout starts with its own name and title styles; the sticker stays
             self.styles = {**LAYOUTS[self.layout].styles, 'sticker': self.styles['sticker']}
             self.say(f'{LAYOUTS[self.layout].name} layout')
+            if self.picture is not None and self.framing_auto:
+                self.fit_picture()           # the name and title moved: fit the picture again
         elif k == 'k':
             self.sticker = (self.sticker + 1) % len(STICKERS)
             name, lines, look = STICKERS[self.sticker]
@@ -205,17 +242,39 @@ class LetteringScreen:
             image = load_image(path) if path else None
             if image is not None:
                 self.picture = image
+                self.fit_picture()
             elif path:
                 self.say('Could not open that picture')
         elif k == 'b':
-            self.picture = None
+            self.picture, self.framing, self.framing_auto = None, Framing(), True
         elif k == 'x':
             self.start_export()
         return None
 
+    def frame_key(self, key):
+        # arrows move the picture, [ ] zoom it, Z fits it to the lettering, O puts it back
+        if self.picture is None:
+            self.say('The placeholder can\'t be moved: these keys move real artwork')
+            return
+        k = chr(key & 0xFF).lower()
+        if key in ARROWS:
+            dx, dy = ARROWS[key]
+            self.nudge(dx=dx * MOVE, dy=dy * MOVE)
+        elif k == '[':
+            self.nudge(zoom=1 / ZOOM)
+        elif k == ']':
+            self.nudge(zoom=ZOOM)
+        elif k == 'z':
+            self.fit_picture()
+            if self.framing == Framing():
+                self.say('The lettering already clears the face')
+        elif k == 'o':
+            self.framing, self.framing_auto = Framing(), False
+            self.say('The picture is back as the AI made it')
+
     def save(self):
         self.saved = save_lettering(self.words, self.layout, self.styles, self.seed, self.picture,
-                                    finishes=self.finishes)
+                                    finishes=self.finishes, framing=self.framing)
         return self.saved
 
     def start_export(self):
@@ -252,7 +311,7 @@ def main(picture=None, name='BIG MIKE'):
     cv2.moveWindow(WINDOW, 40, 20)
     while True:
         cv2.imshow(WINDOW, screen.screen())
-        key = cv2.waitKey(30)
+        key = cv2.waitKeyEx(30)              # Ex: tells the arrow keys apart
         if window_closed(WINDOW):
             break
         action = screen.handle_key(key)

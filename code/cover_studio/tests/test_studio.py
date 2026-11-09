@@ -11,8 +11,10 @@ import numpy as np
 SERVICE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SERVICE_DIR))
 
-from core.cover_layout import LAYOUTS, STICKERS                         # noqa: E402
-from desktop.studio import BAR_H, PREVIEW, TAB_KEY, LetteringScreen     # noqa: E402
+from core.cover_layout import LAYOUTS, STICKERS                                 # noqa: E402
+from core.framing import Framing                                                # noqa: E402
+from desktop.studio import BAR_H, MOVE, PREVIEW, TAB_KEY, LetteringScreen       # noqa: E402
+from test_scan import face                                                      # noqa: E402
 
 
 class FakeAsk:
@@ -103,9 +105,32 @@ class TestLetteringScreen(unittest.TestCase):
         self.assertEqual(screen.handle_key(ord('S')), 'save')
         self.assertIsNone(screen.handle_key(-1))
 
+    def test_the_picture_is_fitted_and_can_be_moved(self):
+        art = np.random.default_rng(0).integers(0, 255, (512, 512, 3)).astype(np.uint8)
+        under_the_name = lambda img: [face(box=(0.4, 0.14, 0.6, 0.30))]
+        screen = LetteringScreen(picture=art, detect=under_the_name)
+        self.assertGreater(screen.framing.dy, 0)                          # moved down off the name
+        fitted = screen.framing
+        screen.handle_key(2621440)                                         # the down arrow (Windows code)
+        self.assertAlmostEqual(screen.framing.dy, fitted.dy + MOVE)
+        self.assertFalse(screen.framing_auto)
+        screen.handle_key(ord(']'))
+        self.assertGreater(screen.framing.zoom, 1.0)
+        screen.handle_key(ord('o'))                                        # back as the AI made it
+        self.assertEqual(screen.framing, Framing())
+        screen.handle_key(ord('z'))                                        # fitted again
+        self.assertEqual(screen.framing, fitted)
+        self.assertEqual(screen.cover().shape, (PREVIEW, PREVIEW, 3))
+
+    def test_moving_keys_leave_the_placeholder_alone(self):
+        screen = LetteringScreen(detect=lambda img: [])
+        screen.handle_key(2621440)
+        self.assertEqual(screen.framing, Framing())
+        self.assertIn('placeholder', screen.message)
+
     def test_starting_with_artwork_and_a_name(self):
         art = np.random.default_rng(0).integers(0, 255, (512, 512, 3)).astype(np.uint8)
-        screen = LetteringScreen(picture=art, name='OOUMARI')
+        screen = LetteringScreen(picture=art, name='OOUMARI', detect=lambda img: [])
         self.assertEqual(screen.words.name, 'OOUMARI')
         aged = screen.cover().copy()
         screen.handle_key(TAB_KEY)                                        # part "artwork"
