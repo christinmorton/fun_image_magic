@@ -13,6 +13,8 @@ code/cover_studio/subjects/
 code/cover_studio/designs/
 code/cover_studio/exports/
 code/cover_studio/spending.json
+# upscaling models: too big for git; tools/get_upscale_models.py fetches them
+code/cover_studio/core/models/upscale/
 __pycache__/
 # API keys: never commit them (.env.example has the names only, no values)
 .env

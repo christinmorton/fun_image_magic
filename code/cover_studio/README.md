@@ -24,6 +24,9 @@ work, but aren't part of this app's focus.
 
 ## Commands (PowerShell, from `code/cover_studio/`)
 
+- First time only, after making the `.venv`: fetch the upscaling models (about 80 MB,
+  Apache 2.0, kept out of git): `.\.venv\Scripts\python.exe tools\get_upscale_models.py`
+
 - Tests: `.\.venv\Scripts\python.exe -m unittest discover tests`. MediaPipe's `W0000`
   warnings are normal.
 - **Cover Studio lettering screen** (free, no AI): `.\.venv\Scripts\python.exe desktop\studio.py`.
