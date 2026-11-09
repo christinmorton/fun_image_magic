@@ -6,10 +6,14 @@ Each guide is built from the research in `resources/ghetto_asethetic_merch/`. St
 
 | Guide | Era | Status |
 | --- | --- | --- |
-| [New Orleans](new-orleans.md) | 1996–2001 | Draft |
-| Memphis | 1991–2000 | Not started |
-| Houston | 1990s–2005 | Not started |
-| Compton and LA | late 1980s–1990s | Not started |
+| [New Orleans](new-orleans.md) | 1996–2001 | Draft; **in the app** |
+| [Memphis](memphis.md) | 1993–2001 | Draft; not in the app yet |
+| [Houston](houston.md) | 1990s–2005 | Draft; not in the app yet |
+| [Compton and LA](compton-la.md) | 1988–1996 | Draft; not in the app yet |
+
+Each new pack also lists what the app would need for it: new lettering treatments (blood,
+slime, typewriter, candy, trunk neon, Old English, spray stencil...), new layouts and new
+finishes (photocopy, screwed, sun-faded).
 
 Atlanta, Miami, Detroit and New York follow once their covers are collected (see the TODO in
 the research `notes.txt`).
