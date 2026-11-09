@@ -193,6 +193,14 @@ webcam screen still needs a first try by hand, and its angles may need tuning th
     default) refuses anything over it (`core/spending.py`). Nothing is sent for someone who
     hasn't agreed to the current permission wording.
 
+**The user's own words (2026-11-08):** D adds extra details to any scene ("a white tiger
+beside them"), and a Custom scene (the last one on S) replaces the scene with the user's
+own description, while the era's base style, the person and the wardrobe still apply. The
+no-text / no-logos / keep-the-face rules are repeated after the user's words, and the
+words are checked first for real artists, labels, brands and the Parental Advisory mark
+(`check_user_text` in `core/styles.py`). Famous people can't all be listed, so they aren't
+caught by that check; Google's own filters still apply.
+
 The artwork screen hands the pick to the lettering screen (L), where the artwork gets its
 own finish and a saved design includes `artwork.png` and the whole `cover.jpg`. The screen
 is tested with a fake image AI; its first real run still needs trying by hand.
