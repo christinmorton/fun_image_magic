@@ -293,10 +293,16 @@ the photos, so **they never go into git**: chosen photos are copied into the git
     or skip a photo. One key sets up every photo at once and jumps to the ones to check.
     Another puts any design PNG on every set-up photo of its product. Its logic is tested;
     the window itself still needs a first try by hand.
-38. **Exports use them:** X on the lettering screen adds photo mockups of each product next to
+38. ✅ **Exports use them:** X on the lettering screen adds photo mockups of each product next to
     the drawn sheet, when photos are set up for it.
-39. Sort the bundles and copy in the good front views: start with 10–15 tees, hoodies and
-    sweatshirts.
+39. ✅ **Sorted the bundles** (2026-11-09): all 358 tee, hoodie and sweatshirt photos are in
+    `mockup_photos/`, already guessed. 248 passed every check (66 tees, 57 hoodies, 125
+    sweatshirts) and 110 are marked to check: something in front of the shirt, the print
+    running off the photo, back views, two people. The couples, kids, mugs, pillows and
+    listing graphics were left out. Back views were missed at first (a bit of neck or ear
+    read as a face); which side each shoulder is on now tells front from back. Many of the
+    photos are AI-made, so they still need an eye for warped hands or seams: S skips one.
+    Exports use the first 6 per product, the ones confirmed with C first.
 
 ---
 

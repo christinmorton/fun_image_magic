@@ -43,8 +43,10 @@ work, but aren't part of this app's focus.
   are saved as a new design with S. After S saves a design, X makes
   its print files (about a minute, in the background): a poster (5400 x 7200), t-shirt
   front (4500 x 5400), hoodie front (4200 x 3600), sweatshirt front (4200 x 4800) and phone
-  case (1500 x 3000), all 300 dpi PNGs, plus `mockups.jpg`, in `exports\<design>\`. The artwork is upscaled and the
-  lettering redrawn at each size. The keys are shown at the top of the window.
+  case (1500 x 3000), all 300 dpi PNGs, plus `mockups.jpg`, in `exports\<design>\`, and
+  photo mockups in `exports\<design>\photos\` for products with set-up photos (see the
+  mockup tool). The artwork is upscaled and the lettering redrawn at each size. The keys are
+  shown at the top of the window.
 - **Mockup tool** (free, no AI): `.\.venv\Scripts\python.exe desktop\mockup_tool.py`. Goes
   through the photos in `mockup_photos\` (people in blank tees, sweatshirts and hoodies;
   bought, so kept out of git), showing where a design would print on each. A guesses every

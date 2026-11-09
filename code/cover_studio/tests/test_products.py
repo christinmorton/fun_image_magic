@@ -62,7 +62,7 @@ class TestProducts(unittest.TestCase):
 
     def test_export_writes_300_dpi_files_and_mockups(self):
         with mock.patch.object(products, 'PRODUCTS', SMALL):
-            out = export_products(self.folder, exports_dir=self.home / 'exports')
+            out = export_products(self.folder, exports_dir=self.home / 'exports', photos_dir=self.home / 'no photos')
         self.assertEqual(out.name, self.folder.name)
         self.assertEqual(sorted(p.name for p in out.iterdir()),
                          ['hoodie.png', 'mockups.jpg', 'phone.png', 'poster.png', 'tee.png'])

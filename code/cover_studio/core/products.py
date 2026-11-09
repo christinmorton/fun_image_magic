@@ -16,6 +16,7 @@ from .designs import load_artwork, load_recipe
 from .finish import age
 from .framing import Framing, blurred_fill, frame_artwork
 from .mockups import mockup_sheet
+from .photo_mockups import MOCKUP_PHOTOS_DIR, make_photo_mockups
 from .upscale import upscale
 
 EXPORTS_DIR = CORE_DIR.parent / 'exports'
@@ -118,9 +119,11 @@ def save_png(path, img, dpi=DPI):
         picture = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
     picture.save(str(path), dpi=(dpi, dpi))
 
-def export_products(design_folder, keys=None, exports_dir=EXPORTS_DIR, quality='fast', progress=None):
-    # every product's print file (or those in `keys`) and a mockup sheet, in
-    # exports/<design>/; returns that folder. progress(text) hears about each step
+def export_products(design_folder, keys=None, exports_dir=EXPORTS_DIR, quality='fast', progress=None,
+                    photos_dir=MOCKUP_PHOTOS_DIR):
+    # every product's print file (or those in `keys`), a mockup sheet and photo mockups of
+    # the products with set-up photos (in photos/), in exports/<design>/; returns that
+    # folder. progress(text) hears about each step
     design = load_design(design_folder)
     out = exports_dir / design_folder.name
     out.mkdir(parents=True, exist_ok=True)
@@ -133,4 +136,5 @@ def export_products(design_folder, keys=None, exports_dir=EXPORTS_DIR, quality='
         made[product.key] = make_product(product, design, quality)
         save_png(out / f'{product.key}.png', made[product.key])
     cv2.imwrite(str(out / 'mockups.jpg'), mockup_sheet(made), [cv2.IMWRITE_JPEG_QUALITY, 90])
+    make_photo_mockups(made, out / 'photos', photos_dir, progress=progress)
     return out
