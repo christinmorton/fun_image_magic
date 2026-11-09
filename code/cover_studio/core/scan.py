@@ -14,6 +14,7 @@ import numpy as np
 from mediapipe.tasks.python import BaseOptions, vision
 
 NOSE, FOREHEAD, CHIN, SIDE_A, SIDE_B = 1, 10, 152, 234, 454      # MediaPipe face mesh points
+CHEEK_A, CHEEK_B, UPPER_LIP = 50, 280, 0    # the cheeks just below the eyes, and the top of the upper lip
 
 HOLD_SECONDS = 1.0          # how long a good, steady pose is held before it's captured
 STEADY = 4.0                # degrees the head may move during the hold (more = still turning)
@@ -25,7 +26,7 @@ FIND_CONFIDENCE, FOLLOW_CONFIDENCE = 0.4, 0.25
 MIN_SHARPNESS = 40.0        # detail in the face (see sharpness()); below this is blurry
 MIN_FACE, MAX_FACE = 0.3, 0.85        # face height, as a fraction of the picture's height (height,
                                       # not width: a face looks narrower as it turns, not shorter)
-DARK, BRIGHT = 70, 215      # the face's average brightness (0-255) must be between these
+DARK, BRIGHT = 70, 215      # the middle of the face's average brightness (0-255) must be between these
 LEVEL = 0.08                # side shots: how far the nose may move up or down the face vs the front shot
 BLINK = 0.65                # eyes count as closed above this (smiling alone can reach about 0.5)
 
@@ -89,6 +90,14 @@ def face_box(landmarks, w, h):
     return (max(0, int(min(xs) * w)), max(0, int(min(ys) * h)),
             min(w, int(max(xs) * w)), min(h, int(max(ys) * h)))
 
+def skin_box(landmarks, w, h):
+    # the middle of the face in pixels: between the cheeks, from just below the eyes down to
+    # the upper lip. Its light is what counts, since hair (a fringe, hair over the sides of
+    # the face) rarely covers it, and dark hair would otherwise make a lit face read as dark
+    a, b = landmarks[CHEEK_A], landmarks[CHEEK_B]
+    return (max(0, int(min(a.x, b.x) * w)), max(0, int(min(a.y, b.y) * h)),
+            min(w, int(max(a.x, b.x) * w)), min(h, int(landmarks[UPPER_LIP].y * h)))
+
 def sharpness(gray):
     # how much fine detail a grey picture has (the variance of its Laplacian), measured at
     # 200 px wide so faces near and far are judged alike; low means blurry
@@ -116,9 +125,11 @@ def check_shot(frame, faces):
     if x1 - x0 < 8 or y1 - y0 < 8:
         return shot
     gray = cv2.cvtColor(frame[y0:y1, x0:x1], cv2.COLOR_BGR2GRAY)
-    if gray.mean() < DARK:
+    sx0, sy0, sx1, sy1 = skin_box(face.landmarks, w, h)
+    skin = gray if sx1 - sx0 < 4 or sy1 - sy0 < 4 else cv2.cvtColor(frame[sy0:sy1, sx0:sx1], cv2.COLOR_BGR2GRAY)
+    if skin.mean() < DARK:
         shot.problems.append('Your face is too dark: add some light in front of you')
-    elif gray.mean() > BRIGHT:
+    elif skin.mean() > BRIGHT:
         shot.problems.append('Too bright: move away from the light')
     shot.sharpness = sharpness(gray)
     if shot.sharpness < MIN_SHARPNESS:

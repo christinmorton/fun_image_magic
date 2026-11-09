@@ -14,9 +14,9 @@ SERVICE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SERVICE_DIR))
 
 from core import MODELS_DIR                                                         # noqa: E402
-from core.scan import (CHIN, DROPOUT_GRACE, FOREHEAD, HOLD_SECONDS, NOSE,           # noqa: E402
-                       PAUSE_SECONDS, SIDE_A, SIDE_B, Face, FaceDetector, Scanner, check_shot, head_level,
-                       head_turn, sort_photos)
+from core.scan import (CHEEK_A, CHEEK_B, CHIN, DROPOUT_GRACE, FOREHEAD, HOLD_SECONDS, NOSE,   # noqa: E402
+                       PAUSE_SECONDS, SIDE_A, SIDE_B, UPPER_LIP, Face, FaceDetector, Scanner, check_shot,
+                       head_level, head_turn, sort_photos)
 
 W, H = 640, 480
 
@@ -30,6 +30,9 @@ def face(turn=0.0, level=0.55, box=(0.38, 0.2, 0.62, 0.75), blink=0.0):
     points[0], points[2] = SimpleNamespace(x=x0, y=y0), SimpleNamespace(x=x1, y=y1)
     points[SIDE_A], points[SIDE_B] = SimpleNamespace(x=x0, y=cy), SimpleNamespace(x=x1, y=cy)
     points[FOREHEAD], points[CHIN] = SimpleNamespace(x=cx, y=y0), SimpleNamespace(x=cx, y=y1)
+    points[CHEEK_A] = SimpleNamespace(x=x0 + 0.3 * (x1 - x0), y=y0 + 0.5 * (y1 - y0))
+    points[CHEEK_B] = SimpleNamespace(x=x0 + 0.7 * (x1 - x0), y=y0 + 0.5 * (y1 - y0))
+    points[UPPER_LIP] = SimpleNamespace(x=cx, y=y0 + 0.7 * (y1 - y0))
     points[NOSE] = SimpleNamespace(x=cx + math.sin(math.radians(turn)) * (x1 - x0) / 2, y=y0 + level * (y1 - y0))
     return Face(points, {'eyeBlinkLeft': blink, 'eyeBlinkRight': blink})
 
@@ -102,6 +105,22 @@ class TestShotChecks(unittest.TestCase):
         self.assertIn('Too bright', check_shot(np.full((H, W, 3), 250, np.uint8), [face()]).problems[0])
         flat = np.full((H, W, 3), 128, np.uint8)
         self.assertIn('Hold still', check_shot(flat, [face()]).problems)
+
+    def test_hair_over_the_face_is_not_counted_as_dark(self):
+        # a fringe down to the eyes and dark hair over both sides of the face: only the
+        # middle of the face (the cheeks below the eyes, the nose) is judged for light
+        frame = busy_frame()
+        x0, y0, x1, y1 = int(0.38 * W), int(0.2 * H), int(0.62 * W), int(0.75 * H)
+        quarter = (x1 - x0) // 4
+        hair = frame.copy()
+        hair[y0:y0 + (y1 - y0) * 45 // 100, x0:x1] = 15
+        hair[y0:y1, x0:x0 + quarter] = 15
+        hair[y0:y1, x1 - quarter:x1] = 15
+        self.assertEqual(check_shot(hair, [face()]).problems, [])
+        # but a dark middle of the face is still too dark, however bright the rest is
+        dark_middle = frame.copy()
+        dark_middle[int(0.47 * H):int(0.6 * H), int(0.45 * W):int(0.55 * W)] = 30
+        self.assertIn('too dark', ' '.join(check_shot(dark_middle, [face()]).problems))
 
 
 class TestScanner(unittest.TestCase):

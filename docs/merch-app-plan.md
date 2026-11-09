@@ -161,6 +161,13 @@ find a full side profile, so the side shots are three-quarter turns (20–55°),
 show the AI more of the face. The scan's logic is tested with made-up faces; the live
 webcam screen still needs a first try by hand, and its angles may need tuning then.
 
+✅ **Hair no longer reads as a dark face (2026-11-09).** A person with a fringe down to her
+eyes and hair over the sides of her face kept getting "too dark" until a lamp was turned
+on: the light was measured over the whole face box, hair included. It's now measured on
+the middle of the face only (between the cheeks, from below the eyes to the upper lip),
+which hair rarely covers. Checked on the stock portraits: the box sits on the nose and
+cheeks, clear of hair and glasses, and reads a little brighter than the whole box did.
+
 ### Phase 4: Artwork for one person (the only paid step)
 18. ✅ **Likeness test first:** a small script sends your own three photos with the Inferno
     and Boss office prompts. It asks before running and costs under $1. The results decide
