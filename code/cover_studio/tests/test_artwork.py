@@ -15,7 +15,7 @@ sys.path.insert(0, str(SERVICE_DIR))
 
 from core.ai import AiError                                                       # noqa: E402
 from core.artwork import (FINAL_PROMPT, ArtworkRequest, make_final, make_previews,   # noqa: E402
-                          preview_cost, save_final, save_previews)
+                          preview_cost, reference_photos, save_final, save_previews)
 from core.spending import PRICES, OverLimit, Spending                             # noqa: E402
 
 PICTURES = {key: np.full((60, 80, 3), value, np.uint8) for key, value in [('right', 200), ('front', 40), ('left', 120)]}
@@ -80,6 +80,27 @@ class TestArtwork(unittest.TestCase):
             make_previews(PICTURES, custom, generator, self.spending(tmp))
             self.assertIn('speedboat', generator.calls[0][0])
             self.assertIn('Purple lights', generator.calls[0][0])
+
+    def test_which_photos_a_crew_sends(self):
+        crew = [{k: np.full((8, 8, 3), base + n, np.uint8) for n, k in enumerate(('front', 'left', 'right'))}
+                for base in (10, 20, 30, 40, 50)]
+        sent = lambda people: [int(img[0, 0, 0]) for img in reference_photos(people)[0]]
+        self.assertEqual(reference_photos(crew[:2])[1], 3)
+        self.assertEqual(sent(crew[:2]), [10, 11, 12, 20, 21, 22])           # each person's angles together
+        self.assertEqual(reference_photos(crew[:4])[1], 3)                   # 12 photos still fit
+        self.assertEqual((sent(crew), reference_photos(crew)[1]), ([10, 20, 30, 40, 50], 1))   # 5: fronts only
+        missing = [crew[0], {'front': crew[1]['front']}]
+        self.assertEqual(sent(missing), [10, 20])                            # someone lacks angles: fronts only
+
+    def test_crew_previews(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            generator = FakeGenerator()
+            make_previews([PICTURES, PICTURES], ArtworkRequest(scene='crew_lineup'), generator, self.spending(tmp))
+            prompt, sent, _, _ = generator.calls[0]
+            self.assertEqual(sent, [40, 120, 200, 40, 120, 200])
+            self.assertIn('2 different people', prompt)
+            with self.assertRaises(ValueError):                              # someone with no front photo
+                make_previews([PICTURES, {'left': PICTURES['left']}], ArtworkRequest(), generator, self.spending(tmp))
 
     def test_final_is_the_preview_made_bigger(self):
         with tempfile.TemporaryDirectory() as tmp:
