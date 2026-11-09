@@ -242,14 +242,22 @@ it, while other changes are saved as a new design. The first export (Devin Money
 re-made this way, with the face clear of the name.
 
 ### Phase 6: Crews
-29. **Scan each member** as their own subject.
+29. ✅ **Scan each member** as their own subject (the existing scan screen).
 30. **Try two approaches and compare:**
-    - **All at once:** every member's references in one AI request. This is simpler, but
-      likeness may weaken past 3–4 people.
+    - ✅ **All at once (built 2026-11-08):** every member's references in one AI request.
+      Up to 4 people send all three angles (12 photos; the model takes 14 and a final adds
+      the preview); 5–6 send front photos only. The prompt says whose photos are whose
+      ("photos 4 to 6 are the second person"), asks for everyone side by side without
+      mixing features, dresses them alike, and makes "the person" in a scene mean the
+      whole crew. A Crew line-up scene is offered only for crews. Previews are kept in
+      `subjects/_crews/` with the members' names. **Still to test on a real crew.**
     - **Collage:** generate each person, cut them out with the person segmenter, and arrange
       them in a crew layout. This keeps each likeness strong and is true to the style: the
-      original covers were Photoshop collages of people shot separately.
-31. **Crew lettering:** a crew name as the title, and members' names in the featuring list.
+      original covers were Photoshop collages of people shot separately. **Only to build if
+      the all-at-once test mixes faces up.**
+31. ✅ **Crew lettering:** L from a crew opens the crew row layout, named "THE CREW" (to
+    change with N), with the members' names in the featuring list. The automatic framing
+    keeps all the faces clear of the lettering.
 
 ### Phase 7: The "cheap way" order flow (still local)
 32. **An order folder per customer:** subjects, chosen design, proof sheet with mockups,
