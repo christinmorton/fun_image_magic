@@ -32,10 +32,44 @@ class TestArtworkScreen(unittest.TestCase):
         self.tmp.cleanup()
 
     def screen(self, **extra):
+        typed = extra.get('typed', [])                              # what the text boxes "type", in order
         return ArtworkScreen(self.folder, lambda: self.generator, self.spending,
                              confirm=lambda question: self.answers.pop(0) if self.answers else True,
                              choose_extras=extra.get('choose_extras', lambda j, a: (('rope_chain',), ('sunglasses',))),
-                             background=lambda work: work())
+                             background=lambda work: work(),
+                             ask=lambda title, prompt, initial='': typed.pop(0) if typed else None)
+
+    def test_details_and_a_custom_scene(self):
+        screen = self.screen(typed=['A white tiger beside them.', 'On a speedboat at sunset.'])
+        screen.handle_key(ord('d'))
+        self.assertEqual(screen.request.details, 'A white tiger beside them.')
+        while screen.request.scene != 'custom':                     # S round to Custom asks for the scene
+            screen.handle_key(ord('s'))
+        self.assertEqual(screen.request.custom_scene, 'On a speedboat at sunset.')
+        self.assertEqual(screen.scene_name(), 'Custom')
+        screen.handle_key(ord('g'))
+        screen.poll()
+        self.assertIn('speedboat', self.generator.calls[0][0])
+        self.assertIn('white tiger', self.generator.calls[0][0])
+
+    def test_cancelling_the_custom_scene_moves_on(self):
+        screen = self.screen(typed=[])                              # every text box is cancelled
+        scenes = screen.scenes()
+        for _ in range(len(scenes) - 1):
+            screen.handle_key(ord('s'))
+        self.assertEqual(screen.request.scene, scenes[0])           # skipped Custom, back to the first
+
+    def test_banned_words_are_refused_before_asking(self):
+        self.answers = []
+        asked = []
+        screen = ArtworkScreen(self.folder, lambda: self.generator, self.spending,
+                               confirm=lambda question: asked.append(question) or True,
+                               background=lambda work: work(), ask=lambda *a: 'Wearing Gucci everything.')
+        screen.handle_key(ord('d'))
+        self.assertIn('gucci', screen.message)
+        screen.handle_key(ord('g'))
+        self.assertEqual((asked, self.generator.calls), ([], []))  # not even the cost question
+        self.assertIn('Fix your words', screen.message)
 
     def test_choices_change_the_request(self):
         screen = self.screen()

@@ -46,7 +46,8 @@ work, but aren't part of this app's focus.
   Someone scanned before the current permission wording can be asked again with
   `desktop\scan.py --reconfirm <their folder>`.
 - **Artwork screen** (COSTS MONEY, always asked first): `.\.venv\Scripts\python.exe desktop\artwork.py`.
-  Pick a scanned person, then S scene, C clothes, J jewellery and extras; G makes four
+  Pick a scanned person, then S scene (the last one, Custom, asks you to describe your own),
+  D your own extra details, C clothes, J jewellery and extras; G makes four
   previews (about $0.18), 1-4 picks one, F remakes it at 2K (about $0.06), and L sends it
   to the lettering screen to finish the cover. Everything is saved in
   `subjects\<name>\artwork\`. Spending is logged in `spending.json`, with a daily limit of

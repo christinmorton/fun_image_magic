@@ -27,9 +27,9 @@ from core.artwork import (PREVIEW_COUNT, ArtworkRequest, final_cost, make_final,
                           make_previews, preview_cost, reference_photos, save_final, save_previews)
 from core.env_file import load_env                                                           # noqa: E402
 from core.spending import OverLimit, Spending                                                # noqa: E402
-from core.styles import ACCESSORIES, CLOTHING, JEWELLERY, STYLES                             # noqa: E402
+from core.styles import ACCESSORIES, CLOTHING, CUSTOM, JEWELLERY, STYLES                     # noqa: E402
 from core.subjects import has_current_consent, list_subjects, load_subject                   # noqa: E402
-from desktop.studio import next_in, window_closed                                            # noqa: E402
+from desktop.studio import ask_text, next_in, window_closed                                  # noqa: E402
 
 WINDOW = 'Cover Studio - Artwork'
 PANEL_W, TILE, GAP, BAR_H = 360, 330, 12, 64     # settings panel, preview tiles, keys bar
@@ -103,8 +103,9 @@ class ArtworkScreen:
     # everything on the artwork screen; no windows here, so it can be tested. Paid work
     # runs in the background (background(work)), and poll() picks up the result
     def __init__(self, folder, make_generator, spending, confirm=confirm, choose_extras=choose_extras,
-                 background=None):
+                 background=None, ask=ask_text):
         self.folder = folder
+        self.ask = ask                                # how to ask for text (a dialog; replaced in tests)
         self.info, self.pictures = load_subject(folder)
         self.request = ArtworkRequest()
         self.make_generator = make_generator          # made on first use, so the screen opens without a key
@@ -116,11 +117,42 @@ class ArtworkScreen:
         self.picked = None                            # the chosen preview's number (1-4)
         self.finals = {}                              # preview number -> its final
         self.busy = None                              # (what, started) while the AI works
-        self.message = 'S scene, C clothes, J jewellery, then G to make previews'
+        self.message = 'S scene (or Custom), D your own details, C clothes, J jewellery, then G to make previews'
         self._done = None                             # finished background work, for poll()
 
     def scenes(self):
-        return list(STYLES[self.request.style].scenes)
+        return list(STYLES[self.request.style].scenes) + [CUSTOM]
+
+    def scene_name(self):
+        if self.request.scene == CUSTOM:
+            return 'Custom'
+        return STYLES[self.request.style].scenes[self.request.scene][0]
+
+    def next_scene(self):
+        # S: the next scene; arriving at Custom asks for the scene's description
+        scene = next_in(self.scenes(), self.request.scene)
+        if scene == CUSTOM:
+            text = self.ask('Custom scene', 'Describe your own scene, e.g. "on a speedboat on the lake at sunset".\n'
+                            'The era\'s look, the person and their clothes are still added:', self.request.custom_scene)
+            if not text or not text.strip():
+                scene = self.scenes()[0]                  # cancelled: on round to the first scene
+            else:
+                self.request = replace(self.request, custom_scene=text.strip())
+        self.request = replace(self.request, scene=scene)
+        self.warn_about_words()
+
+    def edit_details(self):
+        # D: the user's own words, added to whichever scene is chosen
+        text = self.ask('Extra details', 'Anything to add to the scene, e.g. "a white tiger beside them"\n'
+                        '(leave empty for none):', self.request.details)
+        if text is not None:
+            self.request = replace(self.request, details=text.strip())
+            self.warn_about_words()
+
+    def warn_about_words(self):
+        problems = self.request.problems()
+        if problems:
+            self.message = 'Your words: ' + '; '.join(problems)
 
     def chosen(self):
         # the picked artwork: its final if one was made, else the preview
@@ -139,7 +171,9 @@ class ArtworkScreen:
             self.message = 'Wait for the AI to finish...'
             return None
         if k == 's':
-            self.request = replace(self.request, scene=next_in(self.scenes(), self.request.scene))
+            self.next_scene()
+        elif k == 'd':
+            self.edit_details()
         elif k == 'c':
             self.request = replace(self.request, clothing=next_in(list(CLOTHING), self.request.clothing))
         elif k == 'j':
@@ -166,6 +200,9 @@ class ArtworkScreen:
 
     def may_spend(self, cost, question):
         # every check before sending photos and spending money; True to go ahead
+        if self.request.problems():
+            self.message = 'Fix your words first: ' + '; '.join(self.request.problems())
+            return False
         if not has_current_consent(self.info):
             self.message = (f'{self.info["name"]} hasn\'t agreed to their photos going to the image AI: '
                             'desktop\\scan.py --reconfirm first')
@@ -192,8 +229,8 @@ class ArtworkScreen:
         self.background(wrapped)
 
     def start_previews(self):
-        scene = STYLES[self.request.style].scenes[self.request.scene][0]
-        if not self.may_spend(preview_cost(), f'Make {PREVIEW_COUNT} previews of {self.info["name"]} ({scene})'):
+        if not self.may_spend(preview_cost(), f'Make {PREVIEW_COUNT} previews of {self.info["name"]} '
+                                              f'({self.scene_name()})'):
             return
         request, refs = self.request, len(reference_photos(self.pictures))
         def work(generator):
@@ -253,16 +290,20 @@ class ArtworkScreen:
             small = cv2.resize(front, (int(front.shape[1] * scale), int(front.shape[0] * scale)), interpolation=cv2.INTER_AREA)
             panel[GAP:GAP + small.shape[0], GAP:GAP + small.shape[1]] = small
         style = STYLES[self.request.style]
+        short = lambda text, n=34: f'"{text[:n]}..."' if len(text) > n else f'"{text}"'
         lines = [(self.info['name'], WHITE, 0.8, 2),
                  (f'Style: {style.name}', GREY, 0.5, 1),
-                 (f'S  Scene: {style.scenes[self.request.scene][0]}', WHITE, 0.55, 1),
+                 (f'S  Scene: {self.scene_name()}', WHITE, 0.55, 1)]
+        if self.request.scene == CUSTOM:
+            lines.append((f'   {short(self.request.custom_scene)}', GOLD, 0.5, 1))
+        lines += [(f'D  Details: {short(self.request.details) if self.request.details else "none"}', WHITE, 0.55, 1),
                  (f'C  Clothes: {label(self.request.clothing)}', WHITE, 0.55, 1),
                  (f'J  Jewellery: {", ".join(map(label, self.request.jewellery)) or "none"}', WHITE, 0.55, 1),
                  (f'   Extras: {", ".join(map(label, self.request.accessories)) or "none"}', WHITE, 0.55, 1),
                  (f'Spent today: ${self.spending.spent_today():.2f} of ${self.spending.limit:.2f}', GREY, 0.5, 1)]
         y = 250
         for text, colour, scale, weight in lines:
-            cv2.putText(panel, text[:40], (GAP, y), cv2.FONT_HERSHEY_SIMPLEX, scale, colour, weight, cv2.LINE_AA)
+            cv2.putText(panel, text[:44], (GAP, y), cv2.FONT_HERSHEY_SIMPLEX, scale, colour, weight, cv2.LINE_AA)
             y += 34 if scale > 0.6 else 28
         grid = np.full((h, grid_w, 3), 22, np.uint8)
         for i in range(PREVIEW_COUNT):
