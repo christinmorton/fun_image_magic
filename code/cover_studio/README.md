@@ -36,7 +36,9 @@ work, but aren't part of this app's focus.
   cycles its aged finish (clean, print, VHS). K cycles the sticker (none, Hood Classic,
   Street Certified stamp, Warning) and E edits its words. Artwork is moved automatically so
   the name and title don't cover the face; arrows move it, [ ] zoom it, Z fits it again and
-  O puts it back as the AI made it (saved with the design). After S saves a design, X makes
+  O puts it back as the AI made it (saved with the design). D opens a saved design to change
+  or re-export it: moving its picture and pressing X updates it in place, while other changes
+  are saved as a new design with S. After S saves a design, X makes
   its print files (about a minute, in the background): a poster (5400 x 7200), t-shirt
   front (4500 x 5400), hoodie front (4200 x 3600) and phone case (1500 x 3000), all 300 dpi
   PNGs, plus `mockups.jpg`, in `exports\<design>\`. The artwork is upscaled and the

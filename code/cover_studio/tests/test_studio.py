@@ -2,7 +2,9 @@
 # by a fake). Run from the cover_studio folder:
 #   .\.venv\Scripts\python.exe -m unittest discover tests
 import sys
+import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest import mock
 
@@ -11,7 +13,8 @@ import numpy as np
 SERVICE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SERVICE_DIR))
 
-from core.cover_layout import LAYOUTS, STICKERS                                 # noqa: E402
+from core.cover_layout import LAYOUTS, STICKERS, CoverWords                     # noqa: E402
+from core.designs import load_recipe, save_lettering                            # noqa: E402
 from core.framing import Framing                                                # noqa: E402
 from desktop.studio import BAR_H, MOVE, PREVIEW, TAB_KEY, LetteringScreen       # noqa: E402
 from test_scan import face                                                      # noqa: E402
@@ -92,12 +95,40 @@ class TestLetteringScreen(unittest.TestCase):
         screen.handle_key(ord('x'))
         self.assertIn('Save the design first', screen.message)
         screen.saved = Path('designs/20261108-120000-big-mike')
+        screen.saved_as = (screen.settings(), screen.framing)
         with mock.patch('desktop.studio.export_products', return_value=Path('exports/20261108-120000-big-mike')) as fake:
             screen.handle_key(ord('x'))
         fake.assert_called_once()
         self.assertEqual(fake.call_args.args[0], screen.saved)
         self.assertIn('exports/20261108-120000-big-mike', screen.message)
         self.assertFalse(screen.exporting)
+
+    def test_open_a_saved_design_move_it_and_export(self):
+        art = np.random.default_rng(0).integers(0, 255, (300, 300, 3)).astype(np.uint8)
+        words = CoverWords(name='DEVIN MONEY', title='BOSS LIFE', sticker=('STREET', 'CERTIFIED'))
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = save_lettering(words, 'boss_desk', {'name': 'chrome', 'sticker': 'stamp'}, seed=7, picture=art,
+                                    print_size=200, designs_dir=Path(tmp), finishes={'name': 'vhs'})
+            screen = LetteringScreen(detect=lambda img: [], choose_design=lambda folders: folders[0],
+                                     background=lambda work: work())
+            with mock.patch('desktop.studio.list_designs', return_value=[folder]):
+                screen.handle_key(ord('d'))
+            self.assertEqual((screen.words, screen.layout, screen.seed), (words, 'boss_desk', 7))
+            self.assertEqual((screen.styles['name'], screen.styles['sticker'], screen.finishes['name']),
+                             ('chrome', 'stamp', 'vhs'))
+            self.assertEqual(STICKERS[screen.sticker][0], 'Street Certified')
+            self.assertIsNotNone(screen.picture)
+            self.assertEqual(screen.saved, folder)
+            screen.handle_key(2621440)                               # move the picture down, then export
+            with mock.patch('desktop.studio.export_products', return_value=folder) as export:
+                screen.handle_key(ord('x'))
+            export.assert_called_once()
+            self.assertGreater(load_recipe(folder)['framing']['dy'], 0)     # the saved design was updated
+            screen.words = replace(screen.words, title='NEW TITLE')         # a real change: save it first
+            with mock.patch('desktop.studio.export_products') as export:
+                screen.handle_key(ord('x'))
+            export.assert_not_called()
+            self.assertIn('S saves it', screen.message)
 
     def test_quit_save_and_nothing(self):
         screen = LetteringScreen()

@@ -10,7 +10,7 @@ import threading
 import time
 from dataclasses import replace
 from pathlib import Path
-from tkinter import Button, Entry, Frame, Label, Tk
+from tkinter import Button, Entry, Frame, Label, Listbox, Tk
 
 import cv2
 import numpy as np
@@ -22,7 +22,8 @@ if str(SERVICE_DIR) not in sys.path:
 
 from core.cover_layout import (LAYOUTS, STICKERS, CoverWords, apply_lettering,              # noqa: E402
                                draw_cover_lettering, placeholder)
-from core.designs import save_lettering                                                      # noqa: E402
+from core.designs import (list_designs, load_artwork, load_recipe, save_lettering,            # noqa: E402
+                          update_framing)
 from core import MODELS_DIR                                                                  # noqa: E402
 from core.finish import FINISHES, age                                                        # noqa: E402
 from core.framing import Framing, auto_framing, frame_artwork                                # noqa: E402
@@ -69,6 +70,28 @@ def ask_text(title, prompt, initial=''):
     root.mainloop()
     return result['text']
 
+def choose_design(folders):
+    # a list of the saved designs, newest first; returns the chosen folder, or None
+    root = Tk()
+    root.title('Open a saved design')
+    root.attributes('-topmost', True)
+    chosen = {'folder': None}
+    names = Listbox(root, width=50, height=min(14, max(4, len(folders))))
+    for folder in folders:
+        names.insert('end', folder.name)                 # <date>-<time>-<name>
+    names.selection_set(0)
+    names.pack(padx=12, pady=12)
+    def ok(event=None):
+        if names.curselection():
+            chosen['folder'] = folders[names.curselection()[0]]
+        root.destroy()
+    names.bind('<Double-Button-1>', ok)
+    root.bind('<Return>', ok)
+    root.bind('<Escape>', lambda event: root.destroy())
+    Button(root, text='Open', width=12, command=ok).pack(pady=(0, 12))
+    root.mainloop()
+    return chosen['folder']
+
 def next_in(items, current, step=1):
     return items[(items.index(current) + step) % len(items)]
 
@@ -95,7 +118,9 @@ FIELDS = {
 
 class LetteringScreen:
     # everything on the lettering screen; no windows here, so it can be tested
-    def __init__(self, ask=ask_text, picture=None, name='BIG MIKE', background=None, detect=None):
+    def __init__(self, ask=ask_text, picture=None, name='BIG MIKE', background=None, detect=None,
+                 choose_design=choose_design):
+        self.choose_design = choose_design   # how to pick a saved design (a dialog; replaced in tests)
         self.sticker = 1                     # index into STICKERS: Hood Classic
         _, lines, look = STICKERS[self.sticker]
         self.words = CoverWords(name=name, title='BOSS LIFE', sticker=lines)
@@ -111,6 +136,7 @@ class LetteringScreen:
         self._layer = (None, None)           # (settings, lettering), redrawn only when they change
         self._cover = (None, None)
         self.saved = None                    # the latest saved design's folder (X exports it)
+        self.saved_as = (None, None)         # its settings and framing, to spot later changes
         self.exporting = False
         # print files take about a minute, so they're made in the background (not a daemon
         # thread: closing the window still lets an export finish)
@@ -179,7 +205,7 @@ class LetteringScreen:
             x += cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, scale, 2)[0][0] + int(12 * scale / 0.5)
         hints = ['N name   T title   P presents   F featuring   E sticker words   K sticker',
                  'L layout   1 name style   2 title style   TAB part   A finish   R reshuffle',
-                 'U picture   B plain   S save   X print files   Q quit',
+                 'U picture   B plain   D open a design   S save   X print files   Q quit',
                  'Arrows move the picture   [ ] zoom out / in   Z fit to the lettering   O as made']
         for i, hint in enumerate(hints):
             cv2.putText(bar, hint, (14, 84 + 22 * i), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1, cv2.LINE_AA)
@@ -249,7 +275,31 @@ class LetteringScreen:
             self.picture, self.framing, self.framing_auto = None, Framing(), True
         elif k == 'x':
             self.start_export()
+        elif k == 'd':
+            folders = list_designs()
+            if not folders:
+                self.say('No saved designs yet: S saves one')
+            else:
+                folder = self.choose_design(folders)
+                if folder is not None:
+                    self.open_design(folder)
         return None
+
+    def open_design(self, folder):
+        # load a saved design to change or export it: its words, layout, styles, finishes,
+        # sticker, artwork and where the artwork sits. S saves changes as a new design
+        r = load_recipe(folder)
+        self.words, self.layout, self.seed = r['words'], r['layout'], r['seed']
+        self.styles = {**LAYOUTS[self.layout].styles, 'sticker': 'badge', **r['styles']}
+        self.finishes = {part: r['finishes'].get(part, 'clean') for part in PARTS[1:]}
+        self.picture = load_artwork(folder)
+        self.framing, self.framing_auto = Framing(**r['framing']), False
+        matches = [i for i, (_, lines, look) in enumerate(STICKERS)
+                   if lines == self.words.sticker and look == self.styles['sticker']]
+        self.sticker = matches[0] if matches else (0 if not self.words.sticker else 1)
+        self.saved = folder                  # X exports it as it is
+        self.saved_as = (self.settings(), self.framing)
+        self.say(f'Opened {folder.name}   (X exports it, S saves changes as a new design)', 8)
 
     def frame_key(self, key):
         # arrows move the picture, [ ] zoom it, Z fits it to the lettering, O puts it back
@@ -275,6 +325,7 @@ class LetteringScreen:
     def save(self):
         self.saved = save_lettering(self.words, self.layout, self.styles, self.seed, self.picture,
                                     finishes=self.finishes, framing=self.framing)
+        self.saved_as = (self.settings(), self.framing)
         return self.saved
 
     def start_export(self):
@@ -285,6 +336,13 @@ class LetteringScreen:
         if self.saved is None:
             self.say('Save the design first (S), then X makes its print files')
             return
+        settings, framing = self.saved_as
+        if self.settings() != settings:
+            self.say('The design has changed since it was saved: S saves it, then X makes its print files')
+            return
+        if self.framing != framing:          # only the picture moved: update the saved design in place
+            update_framing(self.saved, self.framing)
+            self.saved_as = (settings, self.framing)
         self.exporting = True
         folder = self.saved
         def work():
