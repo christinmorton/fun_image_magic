@@ -53,7 +53,7 @@ Each scene is a setting a design can use. A design uses one.
 | **Boss office** | A big desk, the person leaning back, stacks of cash, a chandelier, red velvet and gold walls, brass candlesticks, champagne | *Unlady Like* |
 | **Mansion life** | Marble and gold interior, a framed gold portrait, a champagne bottle, a classic luxury car out front, a phone to the ear | *Chopper City in the Ghetto* |
 | **War zone** | Explosions, jets and helicopters overhead, a tank, smoke, camo, a burning sky | *Give It 2 'Em Raw*, *Shell Shocked* |
-| **Ghetto skyline** | A neighbourhood street or storefront at dusk with fire in the foreground and a dramatic sky | *Ghetto D* |
+| **Block at dusk** | A neighbourhood street at dusk: shotgun houses, streetlights, a corner store's neon, a dramatic sky | *Ghetto D* |
 | **Crew line-up** | 3–5 people side by side, lit from below, matching headwear, fire and smoke behind | *Guerrilla Warfare*, *TRU 2 da Game* |
 
 **Recommended first scenes:** Inferno and Boss office. They're the most recognisable and the
@@ -162,31 +162,35 @@ What makes it look like 1998 instead of a modern render:
 
 Ready-to-use text for the AI. A request is put together from: the **base** + one
 **scene** + the **person** + the **layout space**. None of them mention an artist, album,
-label or studio.
+label or studio. The app's copy is in `core/styles.py`.
 
-**Base (always used):**
+**Base (always used).** It never mentions fire: when it said "fire orange" and
+"firelight", the AI put flames in every scene. Scenes that want fire ask for it, and the
+others say "No fire or flames anywhere in the picture."
 > A square late-1990s Southern rap album cover artwork, made as a glossy digital photo
-> collage with an airbrushed finish. Oversaturated warm colours, mostly gold, fire orange,
-> red and black. Hard cut-out edges with a soft glowing halo around the person, sparkle
-> glints and lens flares, dramatic firelight. Maximalist and luxurious, every part of the
-> picture full of detail. No text, no letters, no numbers, no logos, no stickers.
+> collage with an airbrushed finish. Oversaturated warm colours, mostly deep gold, burnt
+> orange, red and black. Hard cut-out edges with a soft glowing halo around the person,
+> sparkle glints and lens flares, dramatic warm lighting. Maximalist and luxurious, every
+> part of the picture full of detail. No text, no letters, no numbers, no logos, no stickers.
 
 **Scenes:**
 
 - **Inferno:** The person stands in front of a huge wall of flames inside a grand, ornate
   gold palace library that is on fire. Gold jewellery and banknotes fly through the air.
   Everything glows orange and yellow.
-- **Boss office:** The person leans back in a large leather chair with their feet up on a
-  polished wooden desk covered in stacks of cash. Behind them: red velvet walls with gold
-  patterns, a crystal chandelier, brass candlesticks and a glass of champagne.
+- **Boss office:** The person leans back in a large leather chair behind a polished wooden
+  desk covered in stacks of cash. Behind them: red velvet walls with gold patterns, a
+  crystal chandelier, brass candlesticks and a glass of champagne. No fire or flames.
 - **Mansion life:** The person poses in a white and gold marble mansion, holding a phone to
   their ear. Beside them, a large champagne bottle and an ornate gold picture frame. A
-  classic cream-coloured luxury car with no badges or logos is parked in front.
+  classic cream-coloured luxury car with no badges or logos is parked in front. No fire
+  or flames.
 - **War zone:** The person stands in front of a battlefield at sunset: huge orange
   explosions, smoke, fighter jets and helicopters in the sky, and a tank behind them. The
   person wears camouflage. No weapons in anyone's hands.
-- **Ghetto skyline:** The person stands in front of a neighbourhood street at dusk under a
-  dramatic orange and purple sky, with flames rising across the foreground.
+- **Block at dusk:** The person stands on a neighbourhood street at dusk under a dramatic
+  orange and purple sky, with shotgun houses, warm streetlights and the neon glow of a
+  corner store behind them. No fire or flames.
 
 **Person (always used, with the reference photos):**
 > The person in the reference photos is the main figure, waist-up, in the centre, facing
