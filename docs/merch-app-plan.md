@@ -177,14 +177,25 @@ webcam screen still needs a first try by hand, and its angles may need tuning th
     - The AI added gold chains every time: jewellery must be controlled in the prompt
       (chosen pieces, or "no jewellery").
     - Artwork + lettering + `print` finish made a convincing full cover locally, for free.
-19. **Prompt builder:** the guide's base + one scene + the person + clothing and jewellery
-    choices + layout space. Always "no text".
-20. **Send the subject's angle photos as references** to Nano Banana. It accepts several
-    reference images.
-21. **Previews:** generate 4 variants at 1K (about $0.18), shown side by side to pick from.
-22. **Finals:** remake the picked one at 2K or 4K, or upscale it locally (see step 26).
-23. **Cost guard:** show the cost before each batch, keep a running daily total, and reuse
-    the template's daily limit.
+19. ✅ **Prompt builder:** the guide's base + one scene + the person + clothing and jewellery
+    choices + layout space. Always "no text" (`core/styles.py`). Jewellery is always a
+    choice; with none picked the prompt says "no jewellery", since the AI otherwise adds
+    chains.
+20. ✅ **Send the subject's angle photos as references** to Nano Banana, all three, front
+    first (`core/artwork.py`).
+21. ✅ **Previews:** generate 4 variants at 1K (about $0.18), made at the same time and
+    shown side by side to pick from, on the artwork screen (`desktop/artwork.py`).
+22. ✅ **Finals:** remake the picked one at 2K (about $0.06) by sending the preview back with
+    the photos. Local upscaling is still to compare in step 26. Whether a final keeps the
+    preview's look closely enough is still to see on real runs.
+23. ✅ **Cost guard:** the cost and the day's total are shown and confirmed before each
+    batch, every paid image is logged in `spending.json`, and a daily limit ($2.00 by
+    default) refuses anything over it (`core/spending.py`). Nothing is sent for someone who
+    hasn't agreed to the current permission wording.
+
+The artwork screen hands the pick to the lettering screen (L), where the artwork gets its
+own finish and a saved design includes `artwork.png` and the whole `cover.jpg`. The screen
+is tested with a fake image AI; its first real run still needs trying by hand.
 
 ### Phase 5: Put it together and export
 24. **Combine:** the chosen artwork plus the lettering, laid out with one of the layouts.
