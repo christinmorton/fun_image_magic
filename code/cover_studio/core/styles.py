@@ -52,8 +52,11 @@ NEW_ORLEANS = Style(
                           'purple sky, with shotgun houses, warm streetlights and the neon glow of a corner '
                           'store behind them. ' + NO_FIRE),
     },
+    # the AI sometimes puts the head right at the top anyway (the lettering screen then
+    # moves the artwork down: core/framing.py), so the head's place is spelt out too
     layout_space=('Keep the top fifth and the bottom fifth of the picture as background only, with no faces '
-                  'or important objects, so lettering can be added later.'),
+                  'or important objects, so lettering can be added later. The top of the person\'s head must '
+                  'be below the top quarter of the picture, with only background above it.'),
 )
 
 STYLES = {style.key: style for style in [NEW_ORLEANS]}
