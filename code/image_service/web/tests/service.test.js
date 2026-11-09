@@ -38,6 +38,24 @@ test('a photo is uploaded as the "image" form field', async () => {
   assert.equal(calls[0].body.get('image').name, 'capture.jpg')
 })
 
+test('a video is uploaded as the "video" form field, with its length', async () => {
+  const { fetch, calls } = fakeFetch(() => Response.json({ video_id: 'v1', file_url: '/v1/videos/v1/file' }, { status: 201 }))
+  const info = await new ImageServiceClient({ fetch }).uploadVideo(new Blob(['mp4 bytes'], { type: 'video/mp4' }),
+                                                                     { filename: 'clip.mp4', durationSeconds: 12.3456 })
+  assert.equal(info.video_id, 'v1')
+  assert.equal(calls[0].url, '/image-service/v1/videos')
+  assert.equal(calls[0].method, 'POST')
+  assert.equal(calls[0].body.get('video').name, 'clip.mp4')
+  assert.equal(calls[0].body.get('duration_seconds'), '12.35')
+})
+
+test('a video can be deleted once the app has it', async () => {
+  const { fetch, calls } = fakeFetch(() => new Response(null, { status: 204 }))
+  await new ImageServiceClient({ fetch }).deleteVideo('v 1')
+  assert.equal(calls[0].url, '/image-service/v1/videos/v%201')
+  assert.equal(calls[0].method, 'DELETE')
+})
+
 test('render sends a cleaned look and returns the image and the service time', async () => {
   const { fetch, calls } = fakeFetch(() => new Response(new Blob(['img']), { headers: { 'X-Processing-Time-Ms': '68.4' } }))
   const result = await new ImageServiceClient({ fetch }).render('p1', { preset: 4, notALookSetting: 1 }, { maxWidth: 800 })

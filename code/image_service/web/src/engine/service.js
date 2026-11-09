@@ -44,6 +44,19 @@ export class ImageServiceClient {
     await this.#request(`/v1/photos/${encodeURIComponent(photoId)}`, { method: 'DELETE' })
   }
 
+  async uploadVideo(blob, { filename = 'recording.mp4', durationSeconds = null } = {}) {
+    // keeps a recorded video on the service for the app to fetch from the reply's file_url
+    // and pass on (the service doesn't process videos)
+    const form = new FormData()
+    form.append('video', blob, filename)
+    if (durationSeconds !== null) form.append('duration_seconds', String(Math.round(durationSeconds * 100) / 100))
+    return (await this.#request('/v1/videos', { method: 'POST', body: form })).json()
+  }
+
+  async deleteVideo(videoId) {
+    await this.#request(`/v1/videos/${encodeURIComponent(videoId)}`, { method: 'DELETE' })
+  }
+
   async render(photoId, look, { format = 'jpeg', quality = 92, maxWidth = null } = {}) {
     // the exact finished picture: { blob, ms } (ms: how long the service worked on it)
     const body = { photo_id: photoId, look: toServiceLook(look), format, quality }
