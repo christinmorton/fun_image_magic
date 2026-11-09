@@ -8,8 +8,8 @@ from pathlib import Path
 SERVICE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SERVICE_DIR))
 
-from core.styles import (BANNED_NAMES, CUSTOM, GUARDRAILS, MAX_USER_TEXT, NEW_ORLEANS,   # noqa: E402
-                         STYLES, build_prompt, check_user_text)
+from core.styles import (BANNED_NAMES, CUSTOM, GUARDRAILS, MAX_CREW, MAX_USER_TEXT,     # noqa: E402
+                         NEW_ORLEANS, STYLES, build_prompt, check_user_text)
 
 NEVER = BANNED_NAMES        # names that must never reach the AI
 
@@ -79,6 +79,21 @@ class TestStyles(unittest.TestCase):
         self.assertIn('pen & pixel', check_user_text('in the style of Pen & Pixel')[0])
         self.assertEqual(check_user_text('a supremely shiny car'), [])   # whole words only
         self.assertIn('too long', check_user_text('x' * (MAX_USER_TEXT + 1))[0])
+
+    def test_a_crew_prompt(self):
+        three_angles = build_prompt(NEW_ORLEANS, 'crew_lineup', 3, clothing='camo', people=2)
+        self.assertIn('2 different people', three_angles)
+        self.assertIn('photos 1 to 3 are the first person', three_angles)
+        self.assertIn('photos 4 to 6 are the second person', three_angles)
+        self.assertIn('never mix their features up', three_angles)
+        self.assertIn('They all wear matching camouflage jacket', three_angles)
+        self.assertIn('None of them wear any jewellery', three_angles)
+        self.assertIn('top of their heads', three_angles)
+        fronts = build_prompt(NEW_ORLEANS, 'boss_office', 1, people=5)
+        self.assertIn('photo 5 is the fifth person', fronts)
+        self.assertIn('applies to the whole crew', fronts)            # the scene's "person" means all of them
+        with self.assertRaises(ValueError):
+            build_prompt(NEW_ORLEANS, 'inferno', 1, people=MAX_CREW + 1)
 
     def test_extras_and_unknown_scenes(self):
         self.assertIn('gold rope chain', build_prompt(NEW_ORLEANS, 'boss_office', extras='They wear a gold rope chain.'))

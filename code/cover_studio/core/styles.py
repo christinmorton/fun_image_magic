@@ -47,6 +47,9 @@ NEW_ORLEANS = Style(
                      'The person stands in front of a battlefield at sunset: huge orange explosions, smoke, '
                      'fighter jets and helicopters in the sky, and a tank behind them. The person wears '
                      'camouflage. No weapons in anyone\'s hands.'),
+        'crew_lineup': ('Crew line-up',
+                        'The crew stands shoulder to shoulder in a row, from the waist up, lit dramatically from '
+                        'below, with smoke, sparks and a fiery orange glow behind them.'),
         'block_at_dusk': ('Block at dusk',
                           'The person stands on a neighbourhood street at dusk under a dramatic orange and '
                           'purple sky, with shotgun houses, warm streetlights and the neon glow of a corner '
@@ -91,15 +94,24 @@ ACCESSORIES = {
 }
 
 
-def wardrobe(clothing='gold_silk', jewellery=(), accessories=()):
-    # the clothing, jewellery and accessories sentences of a prompt
-    sentences = [f'They wear {CLOTHING[clothing]}.']
+def wardrobe(clothing='gold_silk', jewellery=(), accessories=(), people=1):
+    # the clothing, jewellery and accessories sentences of a prompt (a crew dresses alike,
+    # as on the old crew covers)
+    they = 'They all wear matching' if people > 1 else 'They wear'
+    sentences = [f'{they} {CLOTHING[clothing].removeprefix("a ").removeprefix("an ") if people > 1 else CLOTHING[clothing]}.']
     pieces = [JEWELLERY[j] for j in jewellery] + [ACCESSORIES[a] for a in accessories]
     if pieces:
-        sentences.append('They wear ' + (', '.join(pieces[:-1]) + ' and ' + pieces[-1] if len(pieces) > 1 else pieces[0]) + '.')
+        sentences.append(('They all wear ' if people > 1 else 'They wear ') +
+                         (', '.join(pieces[:-1]) + ' and ' + pieces[-1] if len(pieces) > 1 else pieces[0]) + '.')
     if not jewellery:
-        sentences.append('They wear no jewellery at all: no chains, rings or watches.')
+        sentences.append(('None of them wear any jewellery' if people > 1 else 'They wear no jewellery at all') +
+                         ': no chains, rings or watches.')
     return ' '.join(sentences)
+
+
+ORDINALS = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth']
+MAX_CREW = len(ORDINALS)
+CREW_SCENES = {'crew_lineup'}       # scenes made for crews (offered only when there's more than one person)
 
 
 def person(references):
@@ -111,6 +123,21 @@ def person(references):
                  'and turned to each side); this person')
     return (f'{intro} is the main figure, waist-up, in the centre, facing the viewer with a confident '
             f'expression. {KEEP_LIKENESS}')
+
+def crew(people, per_person):
+    # how to use the reference photos of a crew: who is in which photos, all of them in the
+    # picture together, each kept like their own photos
+    if per_person == 1:
+        which = ', '.join(f'photo {i + 1} is the {ORDINALS[i]} person' for i in range(people))
+    else:
+        which = ', '.join(f'photos {i * per_person + 1} to {(i + 1) * per_person} are the {ORDINALS[i]} person'
+                          for i in range(people))
+    angles = ' (straight on and turned to each side)' if per_person > 1 else ''
+    return (f'The reference photos show {people} different people{angles}, in order: {which}. All {people} '
+            'appear together in the picture as a crew, side by side from the waist up, each facing the viewer '
+            'with a confident expression. Everything said about "the person" in the scene applies to the whole '
+            'crew together. Keep every person\'s face, skin tone, hair, facial hair and features exactly as in '
+            'their own photos, so each one is clearly recognisable, and never mix their features up.')
 
 # the user's own words can add to a scene (details) or replace it (a custom scene). They're
 # checked first (check_user_text), and these rules are repeated after them, since the AI
@@ -145,12 +172,14 @@ def sentence(text):
     return text + '.' if text and text[-1] not in '.!?' else text
 
 def build_prompt(style, scene, references=1, extras='', clothing=None, jewellery=(), accessories=(),
-                 details='', custom_scene=''):
-    # the full prompt for one scene of a style, for `references` photos of the person.
-    # clothing / jewellery / accessories are keys of CLOTHING, JEWELLERY and ACCESSORIES
-    # (with clothing=None the AI chooses, as in the likeness test); extras adds any other
-    # sentence. The user's own words: scene=CUSTOM uses custom_scene as the whole scene,
-    # and details are added to any scene
+                 details='', custom_scene='', people=1):
+    # the full prompt for one scene of a style, for `references` photos of each of `people`
+    # people (more than one is a crew). clothing / jewellery / accessories are keys of
+    # CLOTHING, JEWELLERY and ACCESSORIES (with clothing=None the AI chooses, as in the
+    # likeness test); extras adds any other sentence. The user's own words: scene=CUSTOM
+    # uses custom_scene as the whole scene, and details are added to any scene
+    if not 1 <= people <= MAX_CREW:
+        raise ValueError(f'a cover can have 1 to {MAX_CREW} people')
     if isinstance(style, str):
         style = STYLES[style]
     if scene == CUSTOM:
@@ -161,8 +190,10 @@ def build_prompt(style, scene, references=1, extras='', clothing=None, jewellery
         scene_text = style.scenes[scene][1]
     else:
         raise ValueError(f'unknown scene "{scene}"; use one of {list(style.scenes) + [CUSTOM]}')
-    worn = wardrobe(clothing, jewellery, accessories) if clothing else ''
+    worn = wardrobe(clothing, jewellery, accessories, people) if clothing else ''
     user_words = scene == CUSTOM or details.strip()
-    parts = [style.base, scene_text, person(references), worn, sentence(details), extras.strip(), style.layout_space,
+    who = person(references) if people == 1 else crew(people, references)
+    space = style.layout_space if people == 1 else style.layout_space.replace("the person's head", 'their heads')
+    parts = [style.base, scene_text, who, worn, sentence(details), extras.strip(), space,
              GUARDRAILS if user_words else '']
     return ' '.join(part for part in parts if part)
