@@ -8,9 +8,9 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Body, Depends, FastAPI, File, HTTPException, Query, Request, Response, UploadFile
+from fastapi import APIRouter, Body, Depends, FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
 
 from core import ASSETS_DIR, MODELS_DIR
@@ -28,7 +28,9 @@ from .catalog import ART_KINDS, Catalog, art_images, build_catalog, full_png, th
 from .looks import ImageOptions, LookIn, encode_image, to_core_look
 from .photos import MAX_UPLOAD_BYTES, PhotoStore, decode_upload
 from .settings import (SERVICE_VERSION, ai_configured, ai_daily_limit, photo_ttl_seconds,
-                       rate_limit_per_minute, service_token)
+                       rate_limit_per_minute, service_token, video_dir, video_max_bytes,
+                       video_storage_bytes, video_ttl_seconds)
+from .videos import NotAVideo, StorageFull, VideoStore, VideoTooBig
 
 
 @asynccontextmanager
@@ -40,11 +42,13 @@ async def lifespan(app):
     app.state.full_images = {}         # the same, at full size
     app.state.tracker = Tracker(MODELS_DIR)
     app.state.photos = PhotoStore(app.state.tracker, photo_ttl_seconds())
+    app.state.videos = VideoStore(video_dir(), video_ttl_seconds())
     # AI runs only when a Gemini key is configured (creating the client makes no request)
     generator = GeminiGenerator() if ai_configured() else None
     app.state.limiter = RateLimiter(rate_limit_per_minute())
     app.state.ai_jobs = AiJobs(app.state.photos, generator, ai_daily_limit(), service_token, photo_ttl_seconds())
     yield
+    app.state.videos.clear()
     app.state.ai_jobs.shutdown()
     app.state.tracker.close()
 
@@ -182,6 +186,67 @@ def delete_photo(photo_id: str, request: Request):
     # delete a photo now instead of waiting for it to expire (privacy)
     if not request.app.state.photos.delete(photo_id):
         raise HTTPException(404, f'Photo "{photo_id}" not found')
+    return Response(status_code=204)
+
+
+class VideoInfo(BaseModel):
+    video_id: str
+    content_type: str                  # 'video/mp4' or 'video/webm'
+    size_bytes: int
+    duration_seconds: float | None     # as the uploader said (the service doesn't read the video)
+    file_url: str                      # GET this, with the token, to download the video
+    expires_at: datetime               # the video is deleted after this (UTC)
+
+def video_info(video):
+    return VideoInfo(video_id=video.video_id, content_type=video.content_type, size_bytes=video.size,
+                     duration_seconds=video.duration_seconds, file_url=f'/v1/videos/{video.video_id}/file',
+                     expires_at=datetime.fromtimestamp(video.expires_at, timezone.utc))
+
+def stored_video(request, video_id):
+    video = request.app.state.videos.get(video_id)
+    if video is None:
+        raise HTTPException(404, f'Video "{video_id}" not found (it may have expired)')
+    return video
+
+@v1.post('/videos', status_code=201, response_model=VideoInfo, tags=['videos'], dependencies=[Depends(rate_limited)])
+async def upload_video(request: Request,
+                       video: UploadFile = File(..., description='An MP4 or WebM video'),
+                       duration_seconds: float | None = Form(None, ge=0, description='Optional: its length, kept with it')):
+    # keep a recorded video for a while, so the app can fetch it (GET file_url) and pass it on
+    # to its own storage. The service doesn't process videos yet.
+    try:
+        stored = await run_in_threadpool(request.app.state.videos.add, video.file, video_max_bytes(),
+                                         video_storage_bytes(), duration_seconds)
+    except NotAVideo:
+        raise HTTPException(415, 'Only MP4 and WebM videos are accepted')
+    except VideoTooBig:
+        raise HTTPException(413, f'The video is larger than {video_max_bytes() // (1024 * 1024)} MB (VIDEO_MAX_MB in .env)')
+    except StorageFull:
+        raise HTTPException(507, 'The service is holding as much video as it may (VIDEO_STORAGE_MB in .env); '
+                                 'fetch and delete some videos first')
+    return video_info(stored)
+
+@v1.get('/videos/{video_id}', response_model=VideoInfo, tags=['videos'])
+def get_video(video_id: str, request: Request):
+    return video_info(stored_video(request, video_id))
+
+@v1.get('/videos/{video_id}/file', tags=['videos'], response_class=FileResponse,
+        responses={200: {'content': {'video/mp4': {}, 'video/webm': {}}, 'description': 'The video file'}})
+def download_video(video_id: str, request: Request):
+    # the video as it was uploaded, for the app to save or send to a cloud provider
+    video = stored_video(request, video_id)
+    return FileResponse(video.path, media_type=video.content_type, filename=f'video-{video_id}.{video.extension}')
+
+@v1.delete('/videos', tags=['videos'])
+def delete_all_videos(request: Request):
+    # delete every stored video now, e.g. once the app has fetched them (privacy)
+    return {'deleted_videos': request.app.state.videos.clear()}
+
+@v1.delete('/videos/{video_id}', status_code=204, tags=['videos'])
+def delete_video(video_id: str, request: Request):
+    # delete a video now, e.g. once the app has it, instead of waiting for it to expire
+    if not request.app.state.videos.delete(video_id):
+        raise HTTPException(404, f'Video "{video_id}" not found')
     return Response(status_code=204)
 
 
