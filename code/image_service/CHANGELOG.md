@@ -17,6 +17,9 @@ changed, and the API is the same.
   See `web/README.md` and `docs/web-webcam-plan.md`.
 - **`tests/test_web.py`** checks that the browser's presets, filters, look defaults and
   brand colours still match `core/`.
+- **Fixed: fitted frames no longer pile up in memory.** `fit_frame` remembered every
+  photo size it had fitted a frame to, forever. It now keeps the 32 most recent
+  (`core/overlays.py`). Apps should take this.
 
 ## 0.2.0 (2026-11-02): the first template
 

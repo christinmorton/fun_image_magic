@@ -6,6 +6,7 @@ import numpy as np
 
 
 _fitted_frames = {}   # (frame, width, height) -> fitted frame, so each size is only worked out once
+MAX_FITTED_FRAMES = 32  # the oldest are forgotten beyond this, so many photo sizes can't fill the memory
 
 def fit_frame(frame, w, h):
     # resize a frame to w x h without squashing its corners, captions or badges:
@@ -13,6 +14,8 @@ def fit_frame(frame, w, h):
     # direction by repeating only plain rows/columns (ones that match their neighbour)
     key = (id(frame), w, h)
     if key not in _fitted_frames:
+        while len(_fitted_frames) >= MAX_FITTED_FRAMES:
+            _fitted_frames.pop(next(iter(_fitted_frames)))       # forget the oldest
         fh, fw = frame.shape[:2]
         scale = min(w / fw, h / fh)
         fitted = cv2.resize(frame, (max(round(fw * scale), 1), max(round(fh * scale), 1)), interpolation=cv2.INTER_AREA)

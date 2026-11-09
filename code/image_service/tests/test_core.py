@@ -19,7 +19,7 @@ from core.env_file import load_env                                # noqa: E402
 from core.filters import KERNEL_NAMES, KERNELS, PRESETS           # noqa: E402
 from core.look import Look, render                                # noqa: E402
 from core.masks import FOCUS_MODES, apply_focus, refine_mask      # noqa: E402
-from core.overlays import fit_frame, paste_centered               # noqa: E402
+from core.overlays import MAX_FITTED_FRAMES, _fitted_frames, fit_frame, paste_centered   # noqa: E402
 from core.props import (MAX_SIZE, add_prop, bring_to_front, move_prop, prop_at,   # noqa: E402
                         remove_prop, resize_prop)
 from core.slots import BORDER, Slots                              # noqa: E402
@@ -132,6 +132,14 @@ class TestFrameFitting(unittest.TestCase):
         for w, h in [(400, 150), (200, 380)]:     # much wider, much taller
             with self.subTest(size=(w, h)):
                 self.assertEqual(self.badge_size(fit_frame(frame, w, h)), (bw, bh))
+
+    def test_only_recent_sizes_are_kept(self):
+        # a page can ask for a frame at any size, so the remembered sizes must not pile up
+        frame = self.make_frame()
+        for w in range(200, 200 + 3 * MAX_FITTED_FRAMES):
+            fit_frame(frame, w, 150)
+        self.assertLessEqual(len(_fitted_frames), MAX_FITTED_FRAMES)
+        self.assertEqual(fit_frame(frame, 321, 150).shape, (150, 321, 4))
 
 
 class TestAssets(unittest.TestCase):
