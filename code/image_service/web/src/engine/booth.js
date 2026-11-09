@@ -9,13 +9,17 @@
 //   await booth.start()
 //   booth.setLook({ preset: 4, sticker: 0 })
 //   const { blob, look } = await booth.capture()     // the unedited photo + the look to render
+//   await booth.startRecording({ limitSeconds: 30 }) // video of the preview (no limit: until stopped)
+//   const video = await booth.stopRecording()        // or it stops by itself at the limit
 //
 // Events (booth.addEventListener): 'status' (detail: { fps, faces, tracking, segmenting }),
 // 'error' (detail: an Error; the camera keeps running if only tracking or art failed).
+// booth.recorder has its own 'tick' and 'stop' events (recorder.js).
 import { fullQuad, mascotQuad, stickerQuad } from './art.js'
 import { Camera } from './camera.js'
 import { EffectRenderer } from './effects.js'
 import { DEFAULT_LOOK, MOVES_PIXELS, builtInCatalog, previewScale } from './presets.js'
+import { Recorder } from './recorder.js'
 import { DEFAULT_MEDIAPIPE, FaceTracker, PersonSegmenter, drawFaceOutlines } from './tracker.js'
 
 export class WebcamBooth extends EventTarget {
@@ -24,7 +28,8 @@ export class WebcamBooth extends EventTarget {
     super()
     this.camera = new Camera()
     this.renderer = new EffectRenderer(canvas)
-    this.overlay = overlay                 // an optional 2D canvas on top of the preview
+    this.recorder = new Recorder(canvas)   // records the preview canvas, so effects and art are in the video
+    this.overlay = overlay                // an optional 2D canvas on top of the preview
     this.mirror = mirror                   // like a selfie camera, and like the desktop booth
     this.track = track
     this.showFaces = showFaces             // outlines round tracked faces (stickers show them too)
@@ -93,7 +98,20 @@ export class WebcamBooth extends EventTarget {
     return this.renderer.snapshot()
   }
 
+  startRecording({ limitSeconds = null, audio = true } = {}) {
+    // video of the preview as it's drawn, with the microphone if audio and allowed;
+    // limitSeconds (up to 5 minutes) stops it by itself
+    if (!this.running) return Promise.reject(new Error('Start the camera before recording'))
+    return this.recorder.start({ limitSeconds, audio })
+  }
+
+  stopRecording() {
+    // resolves with the video: { blob, type, extension, duration, width, height, audio, stoppedBy }
+    return this.recorder.stop()
+  }
+
   dispose() {
+    this.recorder.stop()
     this.stop()
     this._tracker?.close()
     this._segmenter?.close()
