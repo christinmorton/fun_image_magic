@@ -48,7 +48,7 @@ def sample_design(product):
     w = 400
     h = round(w * h_in / w_in)
     out = np.zeros((h, w, 4), np.uint8)
-    side = min(w, h)
+    side = min(w, h, round(w * product.cover_in / w_in) if product.cover_in else w)
     x = (w - side) // 2
     out[:side, x:x + side, :3] = placeholder(side)
     out[:side, x:x + side, 3] = 255

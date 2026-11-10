@@ -31,13 +31,17 @@ class Product:
     height: int
     kind: str               # 'poster' (filled edge to edge), 'garment' (see-through around the
                             # cover) or 'case' (its own tall layout)
+    cover_in: float = None  # garments: how wide the cover is printed, in inches, centred at the
+                            # top of the print area (None: as wide as the print area allows)
 
 
+# garment covers are printed at a usual full-front size, not the biggest the print area takes:
+# 15 in reaches from armpit to armpit on a fitted tee
 PRODUCTS = [
     Product('poster', 'Poster, 18 x 24 in', 5400, 7200, 'poster'),
-    Product('tee', 'T-shirt front, 15 x 18 in', 4500, 5400, 'garment'),
-    Product('hoodie', 'Hoodie front, 14 x 12 in (above the pocket)', 4200, 3600, 'garment'),
-    Product('sweatshirt', 'Sweatshirt front, 14 x 16 in', 4200, 4800, 'garment'),
+    Product('tee', 'T-shirt front, 15 x 18 in (cover 12 in wide)', 4500, 5400, 'garment', 12),
+    Product('hoodie', 'Hoodie front, 14 x 12 in (above the pocket; cover 11 in wide)', 4200, 3600, 'garment', 11),
+    Product('sweatshirt', 'Sweatshirt front, 14 x 16 in (cover 12 in wide)', 4200, 4800, 'garment', 12),
     Product('phone', 'Phone case, tall', 1500, 3000, 'case'),
 ]
 PRODUCTS_BY_KEY = {p.key: p for p in PRODUCTS}
@@ -87,7 +91,7 @@ def make_product(product, design, quality='fast'):
     # around the cover)
     w, h = product.width, product.height
     if product.kind == 'garment':
-        side = min(w, h)
+        side = min(w, h, round(product.cover_in * DPI) if product.cover_in else w)
         out = np.zeros((h, w, 4), np.uint8)
         x = (w - side) // 2
         out[:side, x:x + side, :3] = cover_at(design, side, quality)

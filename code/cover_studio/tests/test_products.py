@@ -54,6 +54,12 @@ class TestProducts(unittest.TestCase):
         self.assertTrue((hoodie[:, :8, 3] == 0).all())                     # cover centred, see-through at the sides
         self.assertEqual(phone.shape, (200, 100, 3))
 
+    def test_a_garment_cover_can_be_narrower_than_the_print_area(self):
+        tee = make_product(Product('tee', 'T-shirt', 150, 180, 'garment', cover_in=0.4), load_design(self.folder))
+        self.assertTrue((tee[:120, 15:135, 3] == 255).all())               # 0.4 in at 300 dpi: 120 px, centred
+        self.assertTrue((tee[:, :15, 3] == 0).all() and (tee[121:, :, 3] == 0).all())
+        self.assertEqual(products.PRODUCTS_BY_KEY['tee'].cover_in, 12)
+
     def test_the_phone_case_keeps_the_camera_corner_plain(self):
         layer = draw_cover_lettering(WORDS, CASE_LAYOUT, (100, 200), seed=1)
         self.assertEqual(layer.shape, (200, 100, 4))                       # a tall canvas works
