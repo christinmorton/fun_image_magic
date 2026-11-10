@@ -19,6 +19,8 @@ code/cover_studio/core/models/upscale/
 # bought, and licensed for showing our designs but not for sharing
 code/cover_studio/core/models/mockups/
 code/cover_studio/mockup_photos/
+# listing photos: designs on those bought photos, with real faces
+docs/etsy-listings/mockups/
 __pycache__/
 # API keys: never commit them (.env.example has the names only, no values)
 .env
