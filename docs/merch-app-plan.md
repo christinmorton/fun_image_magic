@@ -4,9 +4,12 @@ A new app, copied from the image service template, that turns a person (or a cre
 merch designs in the 1990s Southern rap cover style. Written 2026-11-02.
 **Status: draft.** Desktop and local only for now.
 
-> **Current focus (2026-11-08): getting the code working on the desktop.** Selling (stores,
-> Etsy, print-on-demand, order flow) is on hold, and so is the web API. The app is
-> `code/cover_studio/`; most of the work goes in its `core/` and `desktop/` folders.
+> **Where it stands (2026-11-10):** the desktop app works end to end, from scan to print
+> files and photo mockups. The owner treats Cover Studio as a personal challenge project
+> first. Selling is an optional, low-pressure Etsy try, with listing drafts in
+> `docs/etsy-listings/`; the web API is still unused. The app is `code/cover_studio/`;
+> most of the work goes in its `core/` and `desktop/` folders. What's left to do is in
+> `docs/open-items.md`.
 
 ---
 
@@ -116,8 +119,8 @@ Other regions start once a New Orleans design can be scanned, made, lettered and
 13. ✅ **A lettering screen** in the desktop app: type the words, pick a treatment and layout,
     see the result, and save it as a transparent PNG at print size (`desktop/studio.py`,
     2026-11-08). Saving writes `designs/<date>-<name>/` with `lettering.png` (3600 px),
-    `preview.jpg` and `recipe.json`, and takes 2–5 seconds. Its logic is tested; the
-    window itself still needs a first try by hand.
+    `preview.jpg` and `recipe.json`, and takes 2–5 seconds. Tried by hand on 2026-11-08
+    (see below).
 14. **Only if a treatment needs it:** a vector template (SVG) or a hand-made alphabet, as
     described in the style README.
 
@@ -157,9 +160,10 @@ Other regions start once a New Orleans design can be scanned, made, lettered and
 
 **Checked on 13 stock portraits** (in `resources/sample_profile_pics/`, not committed):
 turns read the right way, and front-facing faces read within ±5°. The face finder can't
-find a full side profile, so the side shots are three-quarter turns (20–55°), which also
-show the AI more of the face. The scan's logic is tested with made-up faces; the live
-webcam screen still needs a first try by hand, and its angles may need tuning then.
+find a full side profile, so the side shots are three-quarter turns, which also show the
+AI more of the face. After the owner tried the live webcam scan (2026-11-08), side shots
+need a turn of 28–55° on the reading (front: within 10°), brief face dropouts are
+forgiven, and the reading shows on screen.
 
 ✅ **Hair no longer reads as a dark face (2026-11-09).** A person with a fringe down to her
 eyes and hair over the sides of her face kept getting "too dark" until a lamp was turned
@@ -210,7 +214,8 @@ caught by that check; Google's own filters still apply.
 
 The artwork screen hands the pick to the lettering screen (L), where the artwork gets its
 own finish and a saved design includes `artwork.png` and the whole `cover.jpg`. The screen
-is tested with a fake image AI; its first real run still needs trying by hand.
+is tested with a fake image AI, and was first run for real on 2026-11-08 (the Devin Money
+covers).
 
 ### Phase 5: Put it together and export
 24. ✅ **Combine:** the chosen artwork plus the lettering, laid out with one of the layouts
@@ -318,7 +323,7 @@ looked pasted on. Now:
 - Twelve tee mockups of the four saved covers are in `docs/etsy-listings/mockups/`
   (gitignored: they use the bought photos and show real faces).
 
-### Phase 9: Tee styles, the bootleg look (experiment, 2026-11-10)
+### Phase 9: Tee styles, the bootleg look (experiment, 2026-11-09)
 A cover printed as a hard-edged square still looks like a sticker. Bootleg rap tees blend
 into the shirt instead: cutouts, the shirt's own colour showing through, edges that
 dissolve. `core/tee_styles.py` tries the first two looks, on the cover inside the print
@@ -374,7 +379,7 @@ so treat these as low estimates.
 - **A style model (LoRA)**, trained only on our own curated designs, if prompts alone
   aren't consistent enough.
 - More products: mugs, stickers, tote bags and so on, as new entries in the product specs.
-- **Borders and branding for events** (advice from someone in events, 2026-11-10): to
+- **Borders and branding for events** (advice from someone in events, 2026-11-09): to
   research what hosts want on the souvenir. The booth template already rebrands its frames,
   props and signs (`core/brand.py`, `tools/make_assets.py`), but the covers and shirts can't
   carry an event's name, date, logo, hashtag or sponsor yet, and printed event photos have
@@ -388,9 +393,9 @@ so treat these as low estimates.
 
 | Question | Leaning |
 | --- | --- |
-| App name and folder name | `merch_studio` as a working name |
+| App name and folder name | Cover Studio, `code/cover_studio/` (still a working name) |
 | First style pack | New Orleans 1996–2001 |
 | Screens: stay with OpenCV + Tkinter, or a fuller desktop UI later? | Start with OpenCV + Tkinter; revisit if it gets awkward |
-| Which print-on-demand provider sets the product specs? | Decide before Phase 5 |
+| Which print-on-demand provider sets the product specs? | Not chosen yet; needed before any listing (see `docs/etsy-listings/README.md`) |
 | Crews: all at once or collage? | Test both in Phase 6 |
 | Brand name and listing words | Open (see the brainstorm: "90s rap cover", "Dirty South", "bling era") |
