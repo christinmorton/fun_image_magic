@@ -304,6 +304,20 @@ the photos, so **they never go into git**: chosen photos are copied into the git
     photos are AI-made, so they still need an eye for warped hands or seams: S skips one.
     Exports use the first 6 per product, the ones confirmed with C first.
 
+**After the first listing mockups (2026-11-09):** the prints sat too low and too big, and
+looked pasted on. Now:
+- **Garment covers print 12 in wide** (11 on the hoodie), centred at the top of the print
+  area, instead of filling it. 15 in reached from armpit to armpit on a fitted tee.
+- **The print hangs from the neckline** (found in the clothes mask), about 2½ in below it
+  and centred on the neck opening. The shoulders only give the size and slope, since a
+  raised arm moves them. On the tee photos the neckline sits about 1½ in above
+  MediaPipe's shoulder points, which stands in when it can't be found; a beard over the
+  collar can't push it more than a quarter of an inch below them.
+- **The print looks printed:** matte ink colours (no pure black or white, a little less
+  vivid), wrapped round the chest, as soft as the photo, with more of the fabric's grain.
+- Twelve tee mockups of the four saved covers are in `docs/etsy-listings/mockups/`
+  (gitignored: they use the bought photos and show real faces).
+
 ---
 
 ## Costs

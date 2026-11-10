@@ -2,11 +2,12 @@
 # look printed rather than pasted on. Each photo is set up once: where the product's print
 # area sits on it (four corners), which product it shows, front or back, and the garment's
 # colour, kept next to the photo as <photo>.mockup.json. MediaPipe guesses all of that
-# (guess()): the pose model finds the shoulders and hips, and the print area is placed on
-# the chest at its real size; a second model marks which pixels are clothes (kept as
-# <photo>.clothes.png), so hands, hair and bags in front of the shirt stay in front of the
-# print. print_on() then warps a design into the corners, bends it along the fabric's
-# folds, shades it with them and gives it the fabric's texture.
+# (guess()): the pose model finds the shoulders (for the size and slope), a second model
+# marks which pixels are clothes (kept as <photo>.clothes.png), and the print area hangs a
+# couple of inches below the neckline it shows, at its real size. Hands, hair and bags in
+# front of the shirt stay in front of the print. print_on() then makes the design look
+# printed rather than pasted on: matte ink colours, wrapped round the chest, as soft as the
+# photo, bent along the fabric's folds, shaded by them and given the fabric's texture.
 # The photos are bought mockups, licensed for showing our own designs but not for sharing,
 # so mockup_photos/ is kept out of git.
 import json
@@ -319,6 +320,27 @@ def refit(placement, product, dpi=300):
 
 # --- printing a design on a photo ------------------------------------------------------------
 
+INK_RANGE = (14, 238)       # ink on cotton: no pure black or pure white
+INK_SATURATION = 0.88       # and a little less vivid than on a screen
+WRAP = 0.7                  # radians: how far the print area wraps round the chest at its sides
+
+def as_ink(rgb):
+    # screen colours (float) as they come out printed on cotton: matte and a little muted
+    gray = rgb.mean(axis=2, keepdims=True)
+    rgb = gray + (rgb - gray) * INK_SATURATION
+    lo, hi = INK_RANGE
+    return lo + rgb * (hi - lo) / 255
+
+def wrap(img):
+    # the flat print as seen wrapped round a chest: the middle a little wider, the sides
+    # squeezed, as on a curved surface seen from the front
+    h, w = img.shape[:2]
+    seen = (np.arange(w, dtype=np.float32) + 0.5) / w * 2 - 1
+    flat = np.arcsin(seen * np.sin(WRAP)) / WRAP
+    map_x = np.tile(((flat + 1) / 2 * w - 0.5).astype(np.float32), (h, 1))
+    map_y = np.repeat(np.arange(h, dtype=np.float32)[:, None], w, axis=1)
+    return cv2.remap(img, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
+
 def print_on(photo, corners, design, clothes=None, dark=None):
     # the photo with the design printed in the corners. design: BGR or BGRA (see-through
     # parts aren't printed). clothes: the clothes mask, so whatever is in front of the shirt
@@ -343,12 +365,14 @@ def print_on(photo, corners, design, clothes=None, dark=None):
         design = cv2.resize(design, (max(2, round(design.shape[1] * scale)), max(2, round(design.shape[0] * scale))),
                             interpolation=cv2.INTER_AREA)
     dh, dw = design.shape[:2]
-    # premultiplied, so the see-through edges don't blend in black
+    # premultiplied, so the see-through edges don't blend in black; as ink, wrapped round the chest
     alpha = design[..., 3:].astype(np.float32) / 255
-    premul = np.dstack([design[..., :3].astype(np.float32) * alpha, alpha])
+    premul = wrap(np.dstack([as_ink(design[..., :3].astype(np.float32)) * alpha, alpha]))
     matrix = cv2.getPerspectiveTransform(np.float32([(0, 0), (dw, 0), (dw, dh), (0, dh)]), local)
     layer = cv2.warpPerspective(premul, matrix, (x1 - x0, y1 - y0), flags=cv2.INTER_LINEAR,
                                 borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+    # as soft as the photo: these are rarely pin-sharp, and a crisp print looks pasted on
+    layer = cv2.GaussianBlur(layer, (0, 0), 0.5 + width / 2000)
     # the fabric: its folds (smoothed brightness) and its weave (the fine detail)
     gray = cv2.cvtColor(region.astype(np.uint8), cv2.COLOR_BGR2GRAY).astype(np.float32)
     folds = cv2.GaussianBlur(gray, (0, 0), max(1.5, width / 300))
@@ -365,7 +389,7 @@ def print_on(photo, corners, design, clothes=None, dark=None):
     big_folds = cv2.GaussianBlur(gray, (0, 0), max(2.0, width / 60))
     gx, gy = cv2.Sobel(big_folds, cv2.CV_32F, 1, 0, ksize=3), cv2.Sobel(big_folds, cv2.CV_32F, 0, 1, ksize=3)
     steep = np.percentile(np.hypot(gx, gy)[inside], 99) if inside.any() else 1.0
-    reach = width * 0.006 / max(steep, 1e-3)
+    reach = width * 0.009 / max(steep, 1e-3)
     ys, xs = np.mgrid[0:y1 - y0, 0:x1 - x0].astype(np.float32)
     layer = cv2.remap(layer, xs + gx * reach, ys + gy * reach, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
     # shade it: darker in the folds, brighter on the highlights (gentler on dark garments,
@@ -375,7 +399,7 @@ def print_on(photo, corners, design, clothes=None, dark=None):
     if clothes is not None:
         a *= cv2.GaussianBlur((clothes[y0:y1, x0:x1] > 127).astype(np.float32), (0, 0), 1.2)
     ink = layer[..., :3] * (a / np.maximum(layer[..., 3], 1e-6))[..., None]
-    ink = ink * shade[..., None] + (weave * (0.35 if dark else 0.6))[..., None] * a[..., None]
+    ink = ink * shade[..., None] + (weave * (0.5 if dark else 0.8))[..., None] * a[..., None]
     out[y0:y1, x0:x1] = np.clip(region * (1 - a[..., None]) + ink, 0, 255).astype(np.uint8)
     return out
 

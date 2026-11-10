@@ -14,10 +14,10 @@ SERVICE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SERVICE_DIR))
 
 from core.photo_mockups import (BODY_SKIN, CLOTHES, COLLAR_ABOVE_SHOULDERS_IN, COLLAR_LOWEST_IN,   # noqa: E402
-                                FACE_SKIN, HAIR, PRINT_TOP_IN, SHOULDER_IN, Analysis,
-                                Placement, fit_design, guess, list_photos, load_clothes,
+                                FACE_SKIN, HAIR, INK_RANGE, PRINT_TOP_IN, SHOULDER_IN, Analysis,
+                                Placement, as_ink, fit_design, guess, list_photos, load_clothes,
                                 load_placement, make_photo_mockups, place, print_on, product_from_name,
-                                ready_photos, refit, save_placement)
+                                ready_photos, refit, save_placement, wrap)
 from core.products import PRODUCTS_BY_KEY                                                    # noqa: E402
 
 TEE, HOODIE = PRODUCTS_BY_KEY['tee'], PRODUCTS_BY_KEY['hoodie']
@@ -201,6 +201,23 @@ class TestPrinting(unittest.TestCase):
         self.assertGreater(r, 150)
         self.assertLess(g, 80)
         self.assertTrue((abs(out[325, 200].astype(int) - 220) < 6).all())         # the see-through part
+
+    def test_ink_is_matte(self):
+        ink = as_ink(np.array([[[0, 0, 0], [255, 255, 255], [0, 0, 255]]], np.float32))
+        self.assertTrue(np.allclose(ink[0, 0], INK_RANGE[0]) and np.allclose(ink[0, 1], INK_RANGE[1]))
+        b, g, r = ink[0, 2]
+        self.assertGreater(b, INK_RANGE[0])                                        # pure red, a little muted
+        self.assertLess(r, INK_RANGE[1])
+
+    def test_the_print_wraps_round_the_chest(self):
+        def centre(img, x0, x1):
+            row = img[0, x0:x1, 0]
+            return x0 + float((row * np.arange(len(row))).sum() / row.sum())
+        marks = np.zeros((4, 200, 3), np.float32)
+        marks[:, 46:54] = marks[:, 96:104] = 255           # a quarter of the way across, and the middle
+        wrapped = wrap(marks)
+        self.assertAlmostEqual(centre(wrapped, 85, 115), 100, delta=0.5)        # the middle stays put
+        self.assertLess(centre(wrapped, 30, 70), 48)       # a quarter across moves out: the sides are squeezed
 
     def test_a_bgr_design_works_too(self):
         out = print_on(self.photo, self.corners, self.design[..., :3])
