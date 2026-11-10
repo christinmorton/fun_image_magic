@@ -28,9 +28,15 @@ BACKGROUND, HAIR, BODY_SKIN, FACE_SKIN, CLOTHES, OTHERS = range(6)
 # an adult's body, to put a print area on it at its real size: MediaPipe's shoulder points
 # (the joints) are about 15 in apart, and its hip points about 21 in below them
 SHOULDER_IN, TORSO_IN = 15.0, 21.0
-# where each product's print area starts, in inches below the shoulder line (which is about
-# level with the collar): just under the collar, or under the hood's drawstrings
-PRINT_TOP_IN = {'tee': 1.0, 'sweatshirt': 1.5, 'hoodie': 4.5}
+# where each product's print area starts, in inches below the bottom of the neckline: a
+# couple of inches under the collar, or under the hood's drawstrings
+PRINT_TOP_IN = {'tee': 2.5, 'sweatshirt': 2.5, 'hoodie': 4.0}
+# the neckline is about 1.5 in above MediaPipe's shoulder line (measured on the tee photos),
+# which stands in for it when it can't be found. It's hardly ever more than a quarter of an
+# inch below it: lower than that is a beard or hair hanging over the collar
+COLLAR_ABOVE_SHOULDERS_IN = 1.5
+COLLAR_LOWEST_IN = 0.25
+MAX_TILT = 10               # degrees: a sloping shoulder line is mostly a raised arm, not a tilted chest
 
 # a photo's state: 'good' (guessed, and passed every check), 'check' (guessed, but something
 # needs a look), 'set' (placed or confirmed by hand), 'skip' (not to be used)
@@ -159,30 +165,67 @@ def print_size_in(product, dpi=300):
     # a product's print area, in inches (width, height)
     return product.width / dpi, product.height / dpi
 
-def corners_on(body, size_in, top_in, photo_shape):
-    # the print area's corners on a body, and notes about anything doubtful
+def find_collar(labels, mid, shoulders):
+    # the bottom of the neckline, in pixels, or None: walking up the middle of the shirt from
+    # the chest, the first row that isn't shirt. Chains and pendants lie on the shirt, so they
+    # count as shirt. The point is centred in the neck opening
+    if labels is None:
+        return None
+    h, w = labels.shape
+    shirt = (labels == CLOTHES) | (labels == OTHERS)
+    x, half = int(round(mid[0])), max(2, int(shoulders * 0.04))
+    y_chest, y_top = int(mid[1] + shoulders * 0.45), max(0, int(mid[1] - shoulders * 0.6))
+    if not (half <= x < w - half and y_top < y_chest < h):
+        return None
+    column = shirt[y_top:y_chest + 1, x - half:x + half + 1].mean(axis=1) > 0.5
+    rows = column[::-1]                                  # from the chest upwards
+    if not rows[:max(1, len(rows) // 10)].all() or rows.all():
+        return None                                      # no shirt at the chest, or no neckline
+    y = y_chest - int(np.argmin(rows)) + 1               # the top of the shirt in the middle
+    # the neck opening just above it: centre the point in it if shirt bounds it on both sides
+    row = shirt[max(0, y - 2)]
+    reach = int(shoulders * 0.6)
+    left = np.flatnonzero(row[max(0, x - reach):x])
+    right = np.flatnonzero(row[x:min(w, x + reach)])
+    if len(left) and len(right):
+        x = (max(0, x - reach) + left[-1] + x + right[0]) / 2
+    return np.array([float(x), float(y)])
+
+def corners_on(body, size_in, top_in, photo_shape, labels=None):
+    # the print area's corners on a body, and notes about anything doubtful. The shoulders
+    # give the size and the slope; the neckline (when found) gives where it starts
     notes = []
     p = {name: np.array(v[:2], np.float64) for name, v in body.items()}
     seen = {name: v[2] for name, v in body.items()}
     a, b = sorted((p['left_shoulder'], p['right_shoulder']), key=lambda q: q[0])
     across = b - a
     shoulders = float(np.linalg.norm(across))
-    ux = across / max(shoulders, 1e-6)
+    angle = np.clip(np.arctan2(across[1], across[0]), -np.radians(MAX_TILT), np.radians(MAX_TILT))
+    ux = np.array([np.cos(angle), np.sin(angle)])
     uy = np.array([-ux[1], ux[0]])                       # a quarter turn: down the body
     mid_shoulders = (a + b) / 2
-    per_in_x = shoulders / SHOULDER_IN
+    per_in = shoulders / SHOULDER_IN
+    per_in_y = per_in                                    # facing the camera, the same both ways
     h = photo_shape[0]
     hips_seen = min(seen['left_hip'], seen['right_hip']) >= 0.5 and max(p['left_hip'][1], p['right_hip'][1]) <= h * 1.05
     if hips_seen:
-        torso = float(np.dot((p['left_hip'] + p['right_hip']) / 2 - mid_shoulders, uy))
-        per_in_y = torso / TORSO_IN
-        if not 0.6 <= per_in_y / per_in_x <= 1.6:
-            notes.append('The body looks turned or bent: check the height')
-            per_in_y = float(np.clip(per_in_y, per_in_x * 0.6, per_in_x * 1.6))
+        ratio = float(np.dot((p['left_hip'] + p['right_hip']) / 2 - mid_shoulders, uy)) / TORSO_IN / per_in
+        if ratio > 1.3:                                  # a body turned sideways: narrow shoulders
+            per_in_y = per_in * min(ratio, 1.6)
+            notes.append('The body looks turned: check the size')
+        elif ratio < 0.7:
+            notes.append('The body looks bent or seated: check the height')
+    collar = find_collar(labels, mid_shoulders, shoulders)
+    if collar is None:
+        collar = mid_shoulders - COLLAR_ABOVE_SHOULDERS_IN * per_in_y * uy
+        if labels is not None:
+            notes.append('Couldn\'t find the neckline: check the height')
     else:
-        per_in_y = per_in_x                              # the hips are out of the photo
+        below = float(np.dot(collar - mid_shoulders, uy)) / per_in_y
+        if below > COLLAR_LOWEST_IN:                     # a beard over the collar: lift it back up
+            collar = collar - (below - COLLAR_LOWEST_IN) * per_in_y * uy
     width, height = size_in
-    corners = [mid_shoulders + u * per_in_x * ux + v * per_in_y * uy
+    corners = [collar + u * per_in * ux + v * per_in_y * uy
                for u, v in ((-width / 2, top_in), (width / 2, top_in), (width / 2, top_in + height),
                             (-width / 2, top_in + height))]
     return tuple((float(x), float(y)) for x, y in corners), notes, shoulders
@@ -228,11 +271,12 @@ def place(photo, analysis, product, dpi=300):
         view = 'front' if body['left_shoulder'][0] > body['right_shoulder'][0] else 'back'
         if len(bodies) > 1:
             notes.append(f'{len(bodies)} people: used the biggest')
-        corners, more, shoulders = corners_on(body, size_in, PRINT_TOP_IN.get(product.key, 3.0), photo.shape)
+        corners, more, shoulders = corners_on(body, size_in, PRINT_TOP_IN.get(product.key, 2.5), photo.shape, labels)
         notes += more
-        tilt = abs(np.degrees(np.arctan2(corners[1][1] - corners[0][1], corners[1][0] - corners[0][0])))
-        if tilt > 12:
-            notes.append(f'The shoulders slope {tilt:.0f} degrees')
+        a, b = sorted((body['left_shoulder'][:2], body['right_shoulder'][:2]))
+        tilt = abs(np.degrees(np.arctan2(b[1] - a[1], b[0] - a[0])))
+        if tilt > MAX_TILT:
+            notes.append(f'The shoulders slope {tilt:.0f} degrees (a raised arm?)')
         if shoulders < w * 0.12:
             notes.append('The person is small in the photo')
     if view == 'back':

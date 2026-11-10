@@ -13,8 +13,9 @@ import numpy as np
 SERVICE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(SERVICE_DIR))
 
-from core.photo_mockups import (CLOTHES, FACE_SKIN, PRINT_TOP_IN, SHOULDER_IN, TORSO_IN,   # noqa: E402
-                                Analysis, Placement, fit_design, guess, list_photos, load_clothes,
+from core.photo_mockups import (BODY_SKIN, CLOTHES, COLLAR_ABOVE_SHOULDERS_IN, COLLAR_LOWEST_IN,   # noqa: E402
+                                FACE_SKIN, HAIR, PRINT_TOP_IN, SHOULDER_IN, Analysis,
+                                Placement, fit_design, guess, list_photos, load_clothes,
                                 load_placement, make_photo_mockups, place, print_on, product_from_name,
                                 ready_photos, refit, save_placement)
 from core.products import PRODUCTS_BY_KEY                                                    # noqa: E402
@@ -39,7 +40,7 @@ class TestGuessing(unittest.TestCase):
     def setUp(self):
         self.photo = np.full((1000, 1000, 3), 200, np.uint8)
 
-    def test_the_print_area_sits_on_the_chest_at_its_real_size(self):
+    def test_the_print_area_hangs_from_the_neckline_at_its_real_size(self):
         p = place(self.photo, Analysis([body()], labels_for()), TEE)
         self.assertEqual((p.product, p.view, p.status), ('tee', 'front', 'good'))
         self.assertEqual(len(p.notes), 1)
@@ -47,12 +48,35 @@ class TestGuessing(unittest.TestCase):
         tl, tr, br, bl = p.corners
         per_in = 300 / SHOULDER_IN                       # the shoulders are 300 px apart
         self.assertAlmostEqual(tr[0] - tl[0], 15 * per_in, delta=0.5)       # 15 in wide
-        self.assertAlmostEqual((tl[0] + tr[0]) / 2, 500, delta=0.5)         # centred between the shoulders
-        per_in_y = 420 / TORSO_IN                        # the hips are 420 px below them
-        self.assertAlmostEqual(tl[1], 400 + PRINT_TOP_IN['tee'] * per_in_y, delta=0.5)
-        self.assertAlmostEqual(bl[1] - tl[1], 18 * per_in_y, delta=0.5)     # 18 in tall
+        self.assertAlmostEqual(bl[1] - tl[1], 18 * per_in, delta=0.5)       # 18 in tall
+        self.assertAlmostEqual((tl[0] + tr[0]) / 2, 500, delta=1)           # centred on the neck opening
+        # the shirt stops under the face at y = 300: the print starts a couple of inches below
+        self.assertAlmostEqual(tl[1], 300 + PRINT_TOP_IN['tee'] * per_in, delta=1)
         self.assertEqual(p.colour, (200, 200, 200))
         self.assertFalse(p.dark)
+
+    def test_the_neck_opening_centres_the_print(self):
+        labels = labels_for(face=False)
+        labels[150:330, 460:560] = FACE_SKIN             # a neck right of the shoulders' middle
+        p = place(self.photo, Analysis([body()], labels), TEE)
+        self.assertAlmostEqual((p.corners[0][0] + p.corners[1][0]) / 2, 509.5, delta=1)
+        self.assertAlmostEqual(p.corners[0][1], 330 + PRINT_TOP_IN['tee'] * 20, delta=1)
+
+    def test_a_beard_over_the_collar_doesnt_push_the_print_down(self):
+        labels = labels_for()
+        labels[300:480, 440:560] = HAIR                  # a long beard down onto the chest
+        p = place(self.photo, Analysis([body()], labels), TEE)
+        per_in = 300 / SHOULDER_IN
+        self.assertAlmostEqual(p.corners[0][1], 400 + (COLLAR_LOWEST_IN + PRINT_TOP_IN['tee']) * per_in, delta=1)
+
+    def test_no_neckline_to_be_found(self):
+        labels = labels_for()
+        labels[500:700, 300:700] = BODY_SKIN             # arms folded across the chest
+        p = place(self.photo, Analysis([body()], labels), TEE)
+        per_in = 300 / SHOULDER_IN
+        self.assertAlmostEqual(p.corners[0][1], 400 + (PRINT_TOP_IN['tee'] - COLLAR_ABOVE_SHOULDERS_IN) * per_in, delta=1)
+        self.assertIn('Couldn\'t find the neckline: check the height', p.notes)
+        self.assertEqual(p.status, 'check')
 
     def test_a_hoodie_print_starts_lower(self):
         tee = place(self.photo, Analysis([body()], labels_for()), TEE)
@@ -65,9 +89,14 @@ class TestGuessing(unittest.TestCase):
         self.assertAlmostEqual((bl[1] - tl[1]) / 18, (tr[0] - tl[0]) / 15, delta=0.01)   # same scale both ways
         self.assertEqual(p.status, 'good')
 
-    def test_a_sloping_body_turns_the_print(self):
-        p = place(self.photo, Analysis([body(left=(650, 460), right=(350, 400))], labels_for()), TEE)
+    def test_a_sloping_body_turns_the_print_but_not_far(self):
+        p = place(self.photo, Analysis([body(left=(650, 430), right=(350, 400))], labels_for()), TEE)
         self.assertGreater(p.corners[1][1], p.corners[0][1])
+        # a raised arm lifts one shoulder a lot: the print only turns 10 degrees, and it's flagged
+        p = place(self.photo, Analysis([body(left=(650, 400), right=(350, 300))], labels_for()), TEE)
+        (x0, y0), (x1, y1) = p.corners[:2]
+        self.assertAlmostEqual(np.degrees(np.arctan2(y1 - y0, x1 - x0)), 10, delta=0.5)
+        self.assertEqual(p.status, 'check')
 
     def test_no_person(self):
         p = place(self.photo, Analysis([], labels_for(face=False)), TEE)
