@@ -2,21 +2,42 @@
 
 A photo booth that started as a course project on image processing (OpenCV). It grew into
 a desktop booth, then an image service with AI styles. The image service is now a
-**brand-neutral base**, meant to be copied into future apps.
+**brand-neutral base**, meant to be copied into future apps. The latest app made from it,
+**Cover Studio**, puts a person into 1990s Southern rap album-cover art and prints it on
+merch: a personal challenge project, with selling as an optional extra.
 
-## Where things are (2026-11-02)
+## Where things are (2026-11-10)
 
 | Folder | Branch | What it is |
 | --- | --- | --- |
 | `code/course_project/` | `master` | The original course app: sliders, kernels, greyscale |
 | `code/course_project_extended/` | `photo-booth-extended` | The first photo booth, built for a college event |
 | `code/course_project_enhanced/` | `photo-booth-enhanced` | The modular desktop booth: four-slot editor, masks, props, mascot poses, an AI trial |
-| `code/image_service/` | `image-service` | **The reusable base.** The engine (`core/`), an HTTP API that any app can call (`api/`), and the desktop booth (`desktop/`) |
+| `code/image_service/` | `image-service` | **The reusable base.** The engine (`core/`), an HTTP API that any app can call (`api/`), the desktop booth (`desktop/`), and the live webcam in the browser (`web/`) |
 | `code/image_service_template/` | `image-service` | **Frozen template** for starting new apps: a copy of one release of the image service (see `docs/template-plan.md`) |
-| `code/cover_studio/` | `cover-studio` | **Current work.** A desktop app, copied from template 0.2.0, that puts a person into 90s Southern rap album-cover art (see `docs/merch-app-plan.md`) |
-| `docs/` | | Plans, reviews, pricing notes, lessons and archived records |
+| `code/cover_studio/` | `cover-studio` | **Current work.** A desktop app, copied from template 0.2.0: a guided face scan, AI artwork in four regional styles, lettering drawn in code, print files and photo mockups (see its README and `docs/merch-app-plan.md`) |
+| `docs/` | | Plans, records, reviews, pricing notes and lessons (see the map below) |
 
-Each branch builds on the one before it, so `cover-studio` contains them all.
+Each branch builds on the one before it, so `cover-studio` contains them all. There's no
+remote yet, so the repo exists only on this computer.
+
+## The docs
+
+| To find | Read |
+| --- | --- |
+| What happened, session by session, and why | `docs/project-history.md` |
+| What's left to do, decide or check | `docs/open-items.md` |
+| **Cover Studio:** the plan, every step marked | `docs/merch-app-plan.md` |
+| Cover Studio's style guides, one per region | `docs/merch-styles/` |
+| Selling: Etsy listing drafts and photo checks | `docs/etsy-listings/` |
+| Selling: ways to find customers | `docs/merch-getting-customers.md` |
+| **Image service:** the browser webcam | `docs/web-webcam-plan.md` |
+| The template and how releases are cut | `docs/template-plan.md` |
+| What turning the desktop booth into an API lost | `docs/desktop-to-api-lessons.md` |
+| AI image generation, costs and prices | `docs/ai-image-generation-plan.md`, `docs/ai-costs-overview.md`, `docs/ai-api-pricing.md` |
+| **Earlier stages (archived):** the course project review and roadmaps | `docs/project-review.md`, `docs/expansion-roadmap.md`, `docs/expansion-roadmap-part-2.md` |
+| The extended and enhanced booths | `docs/extended-app.md`, `docs/enhanced-plan.md` |
+| The first image service plan and its v0.1.0 hand-off | `docs/api-service-plan.md`, `docs/image-service-v0.1.0-handoff.md` |
 
 ### The image service
 
