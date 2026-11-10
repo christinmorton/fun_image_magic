@@ -35,8 +35,8 @@ free to change anything.
 | `code/course_project_enhanced/` | `photo-booth-enhanced` | The modular desktop booth: four-slot editor, masks, props, Cody poses |
 | `code/image_service/` | `image-service` | **The reusable base.** `core/` (the engine), `api/` (FastAPI), `desktop/` (the OpenCV booth using `core/`), `web/` (the live webcam in the browser: Vite, plain JavaScript) |
 | `code/image_service_template/` | `image-service` | **Frozen template** for starting new apps: an exact copy of one release of `image_service` |
-| `code/cover_studio/` | `cover-studio` | **Current work.** A desktop app from template 0.2.0 that puts a person into 90s Southern rap cover art. New work goes in `core/` and `desktop/`; `api/` is unused for now. Plan: `docs/merch-app-plan.md` |
-| `docs/` | | Plans, reviews, pricing notes and archived records, in plain English |
+| `code/cover_studio/` | `cover-studio` | **Current work.** A desktop app from template 0.2.0 that puts a person into 90s Southern rap cover art, with print files and photo mockups. New work goes in `core/` and `desktop/`; `api/` is unused for now. Plan: `docs/merch-app-plan.md`. A personal challenge project first: selling (`docs/etsy-listings/`) is an optional, low-pressure try, so don't push business plans |
+| `docs/` | | Plans, reviews, pricing notes and archived records, in plain English. `project-history.md` (what happened, session by session) and `open-items.md` (what's left) are the place to start; the root `readme.md` maps the rest |
 | `resources/` | (gitignored) | Source art (Cody PSDs and cut-outs, CSN branding), test images, research |
 
 - Each folder under `code/` has its own `.venv` (Python 3.15.2, Windows).
@@ -54,6 +54,13 @@ free to change anything.
 - Web webcam (from `web/`): `npm install` once, then `npm run dev` with the API running,
   and open `http://localhost:5173/vanilla/`. `npm test` runs the engine tests. See
   `web/README.md`.
+- **Cover Studio** (from `code/cover_studio/`): the same test command. On a new machine or a
+  fresh checkout, first fetch the gitignored models with `tools\get_upscale_models.py` and
+  `tools\get_mockup_models.py`. Without the upscaling models, about a dozen tests fail with
+  "the upscaling model is missing"; that isn't a code problem. Its screens and keys are in
+  `code/cover_studio/README.md`.
+- Run tests with `discover`: some test files import helpers from others, so running one
+  file on its own can fail to import without anything being wrong.
 
 ## Things to know
 
@@ -85,7 +92,34 @@ free to change anything.
   use fake generators. Ask before running `experiments/ai_trial.py` or a real AI job.
 - API keys live in `.env`, which git ignores. Only `.env.example`, with the names but no
   values, is committed.
+- **Never print a secret.** Don't show tokens or API keys in output, error traces or logs,
+  and check `.env` by its names only. A test once printed the service token, and it had to
+  be rotated.
+- **Personal data and bought files never go into git.** In Cover Studio: `subjects/` (face
+  scans, the owner's own photos under made-up names), `designs/`, `exports/`,
+  `spending.json`, `mockup_photos/`, the models in `core/models/upscale/` and
+  `core/models/mockups/`, and `docs/etsy-listings/mockups/`. Keep `.gitignore` the same on
+  every branch: switching to a branch without these rules once left the face scans
+  untracked, one `git add -A` away from being committed.
+- **The mockup photos** (two bundles bought on Etsy, zipped in `resources/`) are licensed
+  for showing the owner's own designs, not for sharing. Never commit them, copy them into
+  `code/image_service/` or the template, or ship them with software for others.
+- **The album covers in `resources/ghetto_asethetic_merch/` are research only:** never send
+  them to an AI model, trace them or train on them. Borrow the style. No real label logos,
+  brands or the Parental Advisory mark in designs, and the AI never draws the lettering.
 - Use `opencv-contrib-python`, never `opencv-python`; the two conflict.
 - Docs are plain-English Markdown in `docs/`. Mark plan steps ✅ when they're done.
+- **At the end of a working session,** add a short entry to `docs/project-history.md` and
+  update `docs/open-items.md` (remove what's done, add what's new), rather than starting
+  a separate summary file.
+- **Dates and times are Pacific** (the owner's, and git's). Transcript and memory
+  timestamps are in UTC, so convert before writing a date: an evening was once recorded
+  as the next day.
+- **One commit per feature or unrelated change,** never bundled (the owner's standing
+  preference). When one file holds changes for several commits, stage each version
+  separately rather than committing them together.
 - Commit messages: a short subject in the imperative ("Add …", "Mark …"), and a body that
   says what changed and why when that isn't obvious.
+- **Commit messages from PowerShell:** double quotes inside a message break the arguments
+  (it once merged two commits). Write the message to a file as UTF-8 without a BOM and use
+  `git commit -F <file>`.
