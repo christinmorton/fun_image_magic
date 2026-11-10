@@ -15,13 +15,10 @@ optional.
 
 ## Housekeeping
 
-- **No backup.** The repo has no remote, so every commit and tag exists only on this
-  computer. The gitignored files (Cover Studio's scans, designs and exports, the bought
-  mockup photos, the listing mockups, `resources/`) aren't in git at all. A private remote
-  (for example on GitHub) was suggested on 2026-11-08, plus a separate backup for the
-  gitignored files. Never push the bought photos or personal data to a remote.
-- **There's no `main` branch.** Each branch builds on the one before, and `cover-studio`
-  holds everything.
+- **Back up the gitignored files.** The code has been on GitHub (private) since
+  2026-11-10, but the gitignored files aren't in git: Cover Studio's scans, designs and
+  exports, the bought mockup photos, the listing mockups and `resources/`. Keep a separate
+  backup of them (an external drive or a private cloud folder), and never push them.
 - **Template release 0.3.0** hasn't been cut. Everything since 0.2.0 is under
   "Unreleased" in `code/image_service/CHANGELOG.md` (the browser webcam, video uploads,
   full-size art, the frame cache fix). The steps are in `CLAUDE.md`. Afterwards, merge

@@ -24,11 +24,11 @@ form, and update `docs/open-items.md`.
 | Nov 8, evening | The browser webcam and video uploads | 20 | Image service 94, web engine 31 |
 | Nov 9, morning | Project review and the scan's brightness fix | 0 | Cover Studio 186 |
 | Nov 9 | Business ideas, photo mockups, Etsy listings, bootleg tee styles | 11 | Cover Studio 225 |
-| Nov 10 | Consolidating the records | 6 | (docs only) |
+| Nov 10 | Consolidating the records, and the move to GitHub | 7 | (docs only) |
 
 The branches build on each other: `master` → `photo-booth-extended` →
-`photo-booth-enhanced` → `image-service` → `cover-studio`. There's no `main` and no
-remote.
+`photo-booth-enhanced` → `image-service` → `cover-studio`. Since Nov 10 the repo is on
+GitHub (private): `main` is the default branch, and work continues on `cover-studio`.
 
 ---
 
@@ -304,9 +304,9 @@ remote.
 
 ---
 
-## Nov 10: Consolidating the records
+## Nov 10: Consolidating the records, and the move to GitHub
 
-- **Commits:** 6, starting with `cb17b76`
+- **Commits:** 7, starting with `cb17b76`
 - **Branch:** `cover-studio`
 - **Transcript:** `719b7e31-d3ef-418e-bca8-191540b9f9d1` (the same as Nov 9)
 
@@ -319,3 +319,8 @@ remote.
   not 20–55°), and which fixes reached which copy of the code.
 - `docs/merch-app-plan.md` was brought up to date, along with the root `readme.md`,
   `docs/merch-getting-customers.md` and `CLAUDE.md`.
+- **The repo went to GitHub** (private, `fun_image_magic`), after checking that no private
+  file or secret had ever been committed. GitHub's setup commands renamed `cover-studio` to
+  `main`. The owner wanted both, so `cover-studio` was recreated as the working branch and
+  `main` kept as the default branch, the latest finished state. All six branches and both
+  tags were pushed.

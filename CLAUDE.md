@@ -39,6 +39,10 @@ free to change anything.
 | `docs/` | | Plans, reviews, pricing notes and archived records, in plain English. `project-history.md` (what happened, session by session) and `open-items.md` (what's left) are the place to start; the root `readme.md` maps the rest |
 | `resources/` | (gitignored) | Source art (Cody PSDs and cut-outs, CSN branding), test images, research |
 
+- **Branches and GitHub:** the repo is on GitHub (private, `origin`) since 2026-11-10.
+  `main` is the default branch: the latest finished state. Work goes on `cover-studio`,
+  and is brought into `main` only when the owner asks. Push only when asked. The other
+  branches are earlier stages, kept as they were.
 - Each folder under `code/` has its own `.venv` (Python 3.15.2, Windows).
 - `core/` has no web or window code; `api/` and `desktop/` both build on it.
 

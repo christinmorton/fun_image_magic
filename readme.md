@@ -18,8 +18,9 @@ merch: a personal challenge project, with selling as an optional extra.
 | `code/cover_studio/` | `cover-studio` | **Current work.** A desktop app, copied from template 0.2.0: a guided face scan, AI artwork in four regional styles, lettering drawn in code, print files and photo mockups (see its README and `docs/merch-app-plan.md`) |
 | `docs/` | | Plans, records, reviews, pricing notes and lessons (see the map below) |
 
-Each branch builds on the one before it, so `cover-studio` contains them all. There's no
-remote yet, so the repo exists only on this computer.
+Each branch builds on the one before it, so `cover-studio` contains them all. The repo is
+backed up on GitHub (private): `main` is the default branch, the latest finished state, and
+ongoing work is on `cover-studio`.
 
 ## The docs
 
