@@ -4,6 +4,22 @@ How to find buyers if the merch line starts with its own store instead of Etsy. 
 to `docs/merch-app-plan.md`. Written 2026-11-02.
 **Status: draft.** Brainstorm notes, nothing started.
 
+> **Where this stands (2026-11-09).** Written before these decisions, which replace parts
+> of it:
+> - **Etsy and hand-made orders come first,** not an own store. Buyers send photos through
+>   Etsy Messages after ordering. An own storefront (probably Medusa.js) waits until there's
+>   real demand. The listing drafts are in `docs/etsy-listings/`.
+> - **No free AI previews,** so the "free, watermarked preview" idea below is out: AI is only
+>   spent on paid orders. Buyers see a sample gallery, photo mockups and free lettering
+>   previews instead.
+> - **Events may matter most:** someone who works events said this kind of product sells
+>   best in person, made on the spot.
+> - **The owner treats Cover Studio as a personal challenge project first;** selling is a
+>   low-pressure try.
+>
+> The reasons are in `docs/project-history.md` (Nov 9), and the open selling steps in
+> `docs/open-items.md`.
+
 ---
 
 ## The short version
