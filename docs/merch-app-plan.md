@@ -318,6 +318,27 @@ looked pasted on. Now:
 - Twelve tee mockups of the four saved covers are in `docs/etsy-listings/mockups/`
   (gitignored: they use the bought photos and show real faces).
 
+### Phase 9: Tee styles, the bootleg look (experiment, 2026-11-10)
+A cover printed as a hard-edged square still looks like a sticker. Bootleg rap tees blend
+into the shirt instead: cutouts, the shirt's own colour showing through, edges that
+dissolve. `core/tee_styles.py` tries the first two looks, on the cover inside the print
+file; `experiments/tee_styles_sheet.py` puts each saved cover on the lightest and darkest
+close-up tee photos in every style.
+
+40. ✅ **Faded:** the edges dissolve into the shirt as halftone dots (about 22 to the inch, a
+    coarse screen print), over an uneven band so it isn't machine-perfect.
+41. ✅ **Knockout:** the parts the shirt can stand in for aren't printed. On a dark shirt
+    that's everything about as dark as the shirt or darker; on a light shirt, as light or
+    lighter; on a coloured shirt, its own colour. Part-printed areas become dots, never
+    see-through ink, since shirt printers print soft fades badly.
+42. **What it showed:** **faded + knockout on black tees looks like a real bootleg print**
+    (the cover's shadows become the shirt). On white tees the fade turns the covers' dark
+    edges into a grey smudge, so light shirts need the collage instead.
+43. **Bootleg collage** (next, if the look is kept): the person cut out (the segmenter
+    already does it), the name huge, perhaps a second smaller cutout, no box at all.
+44. **A tee style choice** in the lettering screen and exports, saved with the design, once
+    a style is settled. Until then it's only in the experiment.
+
 ---
 
 ## Costs
