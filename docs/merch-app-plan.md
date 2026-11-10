@@ -374,6 +374,13 @@ so treat these as low estimates.
 - **A style model (LoRA)**, trained only on our own curated designs, if prompts alone
   aren't consistent enough.
 - More products: mugs, stickers, tote bags and so on, as new entries in the product specs.
+- **Borders and branding for events** (advice from someone in events, 2026-11-10): to
+  research what hosts want on the souvenir. The booth template already rebrands its frames,
+  props and signs (`core/brand.py`, `tools/make_assets.py`), but the covers and shirts can't
+  carry an event's name, date, logo, hashtag or sponsor yet, and printed event photos have
+  no branded border.
+- **Beyond 90s rap covers:** other kinds of designs (movie posters, fight posters, magazine
+  covers and so on) as their own style packs, later.
 
 ---
 
